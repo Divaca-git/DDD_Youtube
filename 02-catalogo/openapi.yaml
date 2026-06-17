@@ -1,0 +1,1131 @@
+# =====================================================================
+# Contexto 2: Catálogo editorial y derechos — Especificación OpenAPI
+# Borrador completo del piloto. Cubre RF-C1 a RF-C6.
+# Convenciones del equipo: ver plantilla-openapi-catalogo.yaml
+# Eventos: nombres canónicos según docs/registro-eventos.md
+# =====================================================================
+openapi: 3.0.3
+
+info:
+  title: API de Catálogo Editorial y Derechos
+  version: 1.0.0
+  description: |
+    **Responsabilidad del contexto (entregable 1):**
+    Define qué contenido existe públicamente, cómo se presenta y bajo qué
+    reglas puede mostrarse (legales, territoriales, etarias, de moderación).
+    En este contexto el "video" es un **ítem de catálogo**, no un archivo:
+    un asset puede existir sin estar publicado, y la visibilidad depende de
+    reglas editoriales, no de infraestructura de streaming.
+
+    **Eventos que emite:** ContenidoPublicado, ContenidoDespublicado,
+    ContenidoActualizado, RestriccionAplicada, RestriccionLevantada,
+    ReclamacionCreada, ReclamacionResuelta.
+    Cada operación indica en su descripción qué evento emite.
+
+    **Eventos que consume:** AssetListoParaPublicacion (desde Publicación).
+    Catálogo solo permite vincular assets que Publicación haya anunciado
+    como técnicamente listos.
+
+    Nombres y payloads según `docs/registro-eventos.md`.
+
+    **Consistencia eventual (RNF-5):** este contexto asume que Descubrimiento
+    y Publicidad pueden referenciar contenido recién despublicado durante una
+    ventana corta. Caso límite documentado: si se consulta la visibilidad de
+    un contenido despublicado, la API responde **410 Gone** (existió, ya no
+    está disponible), distinto de 404 (nunca existió).
+
+# RNF-1: por defecto TODAS las operaciones requieren un token.
+# Las operaciones públicas lo desactivan explícitamente con `security: []`.
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Canales
+    description: Gestión de canales (RF-C1)
+  - name: Contenidos
+    description: Creación editorial, publicación y visibilidad (RF-C2, RF-C3)
+  - name: Playlists
+    description: Colecciones ordenadas de contenidos (RF-C4)
+  - name: Reclamaciones
+    description: Derechos y reclamaciones (RF-C5)
+  - name: Restricciones
+    description: Políticas y restricciones de contenido (RF-C6)
+
+paths:
+
+  # ===================================================================
+  # CANALES (RF-C1)
+  # ===================================================================
+  /canales:
+    post:
+      tags: [Canales]
+      summary: Crear un canal asociado a un creador
+      operationId: crearCanal
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier creador autenticado.
+        El canal queda asociado al userId del token. Cubre RF-C1.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanalCreacion'
+      responses:
+        '201':
+          description: Canal creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Canal'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /canales/{canalId}:
+    get:
+      tags: [Canales]
+      summary: Consultar información pública de un canal
+      operationId: obtenerCanal
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Endpoint público,
+        no requiere autenticación. Cubre RF-C1.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CanalId'
+      responses:
+        '200':
+          description: Canal encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Canal'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    patch:
+      tags: [Canales]
+      summary: Actualizar la información pública del canal
+      operationId: actualizarCanal
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño del canal.
+        Cubre RF-C1 (actualizar nombre, descripción, imagen).
+      parameters:
+        - $ref: '#/components/parameters/CanalId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanalActualizacion'
+      responses:
+        '200':
+          description: Canal actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Canal'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /canales/{canalId}/contenidos:
+    get:
+      tags: [Canales]
+      summary: Listar el contenido publicado de un canal
+      operationId: listarContenidosDeCanal
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. El resultado se
+        filtra según la visibilidad aplicable al solicitante.
+        Listado **paginado** según RNF-3. Cubre RF-C1.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CanalId'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de contenidos del canal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeContenidos'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # CONTENIDOS (RF-C2, RF-C3)
+  # ===================================================================
+  /contenidos:
+    post:
+      tags: [Contenidos]
+      summary: Crear un contenido en borrador vinculando un asset técnico
+      operationId: crearContenido
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño del asset
+        y del canal destino.
+
+        Vincula un `videoAssetId` (del contexto de Publicación) con metadata
+        editorial. El contenido nace en estado **borrador**. Cubre RF-C2.
+
+        Solo se aceptan assets que Publicación haya anunciado como listos
+        mediante el evento `AssetListoParaPublicacion`; de lo contrario
+        responde 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContenidoCreacion'
+      responses:
+        '201':
+          description: Contenido creado en estado borrador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContenidoCatalogo'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  /contenidos/{catalogItemId}:
+    patch:
+      tags: [Contenidos]
+      summary: Editar la metadata editorial de un contenido
+      operationId: actualizarContenido
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño.
+        Cubre RF-C2 (editar metadata de contenido existente).
+
+        **Emite:** `ContenidoActualizado` si el contenido está publicado.
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContenidoActualizacion'
+      responses:
+        '200':
+          description: Contenido actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContenidoCatalogo'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /contenidos/{catalogItemId}/publicar:
+    post:
+      tags: [Contenidos]
+      summary: Publicar un contenido
+      operationId: publicarContenido
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño.
+
+        Transición de estado borrador → publicado. Es una acción (POST) y no
+        una edición de campo porque valida reglas de negocio y dispara
+        notificaciones. Cubre RF-C3.
+
+        **Emite:** `ContenidoPublicado` (consumido por Descubrimiento,
+        Audiencia, Monetización y Publicidad).
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      responses:
+        '200':
+          description: Contenido publicado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContenidoCatalogo'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  /contenidos/{catalogItemId}/despublicar:
+    post:
+      tags: [Contenidos]
+      summary: Despublicar u ocultar un contenido
+      operationId: despublicarContenido
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño, o un moderador
+        de la plataforma.
+
+        Transición publicado → despublicado. Cubre RF-C3.
+
+        **Emite:** `ContenidoDespublicado`. Los consumidores reaccionan con
+        consistencia eventual (RNF-5): durante una ventana corta el contenido
+        puede seguir apareciendo en feeds de Descubrimiento.
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      responses:
+        '200':
+          description: Contenido despublicado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContenidoCatalogo'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  /contenidos/{catalogItemId}/visibilidad:
+    get:
+      tags: [Contenidos]
+      summary: Consultar si un contenido es visible para un usuario dado
+      operationId: consultarVisibilidad
+      description: |
+        **Quién puede ejecutarla (RNF-1):** otros contextos (actor "sistema")
+        o clientes autenticados.
+
+        Esta es la **consulta síncrona** que el RNF-4 permite ("validar
+        existencia o visibilidad"). Por ejemplo, Descubrimiento la invoca
+        antes de servir una recomendación. Cubre RF-C3.
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+        - name: pais
+          in: query
+          required: false
+          description: País del solicitante (para bloqueo geográfico)
+          schema:
+            type: string
+        - name: edad
+          in: query
+          required: false
+          description: Edad del solicitante (para restricción etaria)
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Estado de visibilidad del contenido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Visibilidad'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '410':
+          description: |
+            El contenido existió pero fue despublicado o restringido.
+            Caso límite de consistencia eventual documentado (RNF-5).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ===================================================================
+  # PLAYLISTS (RF-C4)
+  # ===================================================================
+  /playlists:
+    post:
+      tags: [Playlists]
+      summary: Crear una colección ordenada de contenidos
+      operationId: crearPlaylist
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal
+        indicado en el cuerpo. Cubre RF-C4.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaylistCreacion'
+      responses:
+        '201':
+          description: Playlist creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /playlists/{playlistId}:
+    get:
+      tags: [Playlists]
+      summary: Consultar una playlist con su orden
+      operationId: obtenerPlaylist
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera si la playlist es
+        pública o no listada; solo el dueño si es privada (en ese caso, a
+        terceros se responde 404 para no revelar su existencia).
+        Cubre RF-C4. Los ítems se devuelven completos y en su orden
+        definido; no se paginan por ser una colección acotada
+        (decisión documentada frente a RNF-3).
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+      responses:
+        '200':
+          description: Playlist con sus ítems ordenados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /playlists/{playlistId}/items:
+    post:
+      tags: [Playlists]
+      summary: Agregar un contenido a la playlist
+      operationId: agregarItemPlaylist
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el dueño de la playlist.
+        Si no se indica posición, el ítem se agrega al final. Cubre RF-C4.
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaylistItemAgregar'
+      responses:
+        '200':
+          description: Playlist actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    put:
+      tags: [Playlists]
+      summary: Reordenar los contenidos de la playlist
+      operationId: reordenarPlaylist
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el dueño de la playlist.
+        Recibe la lista completa de catalogItemIds en el nuevo orden y la
+        reemplaza. Cubre RF-C4 (reordenar ítems).
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaylistReorden'
+      responses:
+        '200':
+          description: Playlist reordenada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /playlists/{playlistId}/items/{catalogItemId}:
+    delete:
+      tags: [Playlists]
+      summary: Quitar un contenido de la playlist
+      operationId: quitarItemPlaylist
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el dueño de la playlist.
+        Cubre RF-C4 (quitar ítems).
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+        - $ref: '#/components/parameters/CatalogItemId'
+      responses:
+        '204':
+          description: Ítem quitado de la playlist
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # RECLAMACIONES (RF-C5)
+  # ===================================================================
+  /contenidos/{catalogItemId}/reclamaciones:
+    post:
+      tags: [Reclamaciones]
+      summary: Registrar una reclamación de derechos sobre un contenido
+      operationId: crearReclamacion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** un titular de derechos
+        autenticado, o el actor "sistema" (detección automática).
+        Cubre RF-C5.
+
+        **Emite:** `ReclamacionCreada`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReclamacionCreacion'
+      responses:
+        '201':
+          description: Reclamación registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reclamacion'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /reclamaciones/{claimId}/resolver:
+    post:
+      tags: [Reclamaciones]
+      summary: Resolver una reclamación (aceptar, disputar, retirar)
+      operationId: resolverReclamacion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** un moderador de la plataforma;
+        el titular puede retirar su propia reclamación.
+        Cubre RF-C5.
+
+        Si la resolución lo indica, este contexto puede **aplicar una
+        restricción** al contenido como consecuencia (RF-C5), lo que además
+        emite `RestriccionAplicada`.
+
+        **Emite:** `ReclamacionResuelta`.
+      parameters:
+        - $ref: '#/components/parameters/ClaimId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReclamacionResolucion'
+      responses:
+        '200':
+          description: Reclamación resuelta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reclamacion'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  # ===================================================================
+  # RESTRICCIONES (RF-C6)
+  # ===================================================================
+  /contenidos/{catalogItemId}/restricciones:
+    get:
+      tags: [Restricciones]
+      summary: Consultar el estado de política actual de un contenido
+      operationId: listarRestricciones
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño, moderadores,
+        o el actor "sistema" (otros contextos).
+
+        Por defecto devuelve solo las restricciones **activas** (estado de
+        moderación/política actual). Con `incluirHistorial=true` devuelve
+        también las levantadas, cubriendo el historial de estado de política
+        que exige RF-C6.
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+        - name: incluirHistorial
+          in: query
+          required: false
+          description: Si es true, incluye restricciones ya levantadas (historial)
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Restricciones del contenido
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Restriccion'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    post:
+      tags: [Restricciones]
+      summary: Aplicar una restricción a un contenido
+      operationId: aplicarRestriccion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** moderadores o el actor "sistema"
+        (por ejemplo, como consecuencia de una reclamación).
+        Cubre RF-C6 (edad mínima, bloqueo geográfico, limitación de
+        monetización, etc.).
+
+        **Emite:** `RestriccionAplicada` (consumido por Descubrimiento,
+        Publicidad, Monetización y Audiencia).
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestriccionCreacion'
+      responses:
+        '201':
+          description: Restricción aplicada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Restriccion'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /contenidos/{catalogItemId}/restricciones/{restriccionId}:
+    delete:
+      tags: [Restricciones]
+      summary: Levantar una restricción de un contenido
+      operationId: levantarRestriccion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** moderadores o el actor "sistema".
+
+        La restricción no se borra: pasa a estado **levantada** y conserva
+        sus fechas, para mantener el historial de política (RF-C6).
+
+        **Emite:** `RestriccionLevantada`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+        - $ref: '#/components/parameters/RestriccionId'
+      responses:
+        '204':
+          description: Restricción levantada
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+components:
+
+  # RNF-1: cómo se identifica al actor.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token emitido por la plataforma de identidad compartida (el login
+        con Google queda FUERA de los bounded contexts según el enunciado).
+        El token identifica al actor: creador, viewer, moderador, titular
+        de derechos o sistema.
+
+  parameters:
+    CanalId:
+      name: canalId
+      in: path
+      required: true
+      description: Identificador del canal (channelId compartido, RNF-2)
+      schema:
+        type: string
+    CatalogItemId:
+      name: catalogItemId
+      in: path
+      required: true
+      description: Identificador del ítem de catálogo (compartido, RNF-2)
+      schema:
+        type: string
+    PlaylistId:
+      name: playlistId
+      in: path
+      required: true
+      description: Identificador de la playlist
+      schema:
+        type: string
+    ClaimId:
+      name: claimId
+      in: path
+      required: true
+      description: Identificador de la reclamación
+      schema:
+        type: string
+    RestriccionId:
+      name: restriccionId
+      in: path
+      required: true
+      description: Identificador de la restricción
+      schema:
+        type: string
+    Pagina:
+      name: pagina
+      in: query
+      required: false
+      description: Número de página, desde 1 (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    TamanoPagina:
+      name: tamanoPagina
+      in: query
+      required: false
+      description: Cantidad de ítems por página (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  # RNF-3: respuestas de error reutilizables.
+  responses:
+    PeticionInvalida:
+      description: Cuerpo o parámetros inválidos (400)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoAutenticado:
+      description: Falta el token o es inválido (401)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    SinPermiso:
+      description: El actor autenticado no puede ejecutar esta operación (403)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoEncontrado:
+      description: El recurso no existe (404)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflicto:
+      description: La operación no es válida en el estado actual del recurso (409)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+
+    # RNF-3: formato de error único de esta API.
+    Error:
+      type: object
+      description: Formato de error consistente del contexto Catálogo (RNF-3)
+      required:
+        - codigo
+        - mensaje
+      properties:
+        codigo:
+          type: string
+          description: Código estable legible por máquina
+          example: CONTENIDO_NO_PUBLICABLE
+        mensaje:
+          type: string
+          description: Explicación legible por humanos
+          example: El contenido no puede publicarse desde su estado actual
+        detalles:
+          type: array
+          description: Información adicional opcional (ej. errores por campo)
+          items:
+            type: string
+
+    # ----- Canales -----
+    Canal:
+      type: object
+      description: |
+        El Canal según el contexto de Catálogo: una entidad EDITORIAL.
+        Otros contextos definen SU propio Canal con otros campos (RNF-2).
+      required:
+        - id
+        - nombre
+      properties:
+        id:
+          type: string
+          description: channelId compartido entre contextos (RNF-2)
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        imagenUrl:
+          type: string
+        fechaCreacion:
+          type: string
+          format: date-time
+
+    CanalCreacion:
+      type: object
+      description: Datos para crear un canal (RF-C1). El dueño sale del token.
+      required:
+        - nombre
+      properties:
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        imagenUrl:
+          type: string
+
+    CanalActualizacion:
+      type: object
+      description: Campos editables de la información pública (RF-C1)
+      properties:
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        imagenUrl:
+          type: string
+
+    # ----- Contenidos -----
+    ContenidoCatalogo:
+      type: object
+      description: |
+        El "video" según Catálogo: un ítem editorial con ciclo de
+        publicación. Coincide con la clase ContenidoCatalogo del diagrama.
+      required:
+        - catalogItemId
+        - videoAssetId
+        - channelId
+        - titulo
+        - estado
+      properties:
+        catalogItemId:
+          type: string
+        videoAssetId:
+          type: string
+          description: Referencia al asset técnico de Publicación. Solo el ID (RNF-2).
+        channelId:
+          type: string
+        titulo:
+          type: string
+        descripcion:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        categoria:
+          type: string
+        miniaturaUrl:
+          type: string
+        estado:
+          type: string
+          enum: [borrador, publicado, despublicado]
+        fechaPublicacion:
+          type: string
+          format: date-time
+
+    ContenidoCreacion:
+      type: object
+      description: Vincula un asset técnico con metadata editorial (RF-C2)
+      required:
+        - videoAssetId
+        - channelId
+        - titulo
+      properties:
+        videoAssetId:
+          type: string
+          description: Asset anunciado como listo por Publicación (RNF-2)
+        channelId:
+          type: string
+        titulo:
+          type: string
+        descripcion:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        categoria:
+          type: string
+        miniaturaUrl:
+          type: string
+
+    ContenidoActualizacion:
+      type: object
+      description: Campos editables de la metadata editorial (RF-C2)
+      properties:
+        titulo:
+          type: string
+        descripcion:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        categoria:
+          type: string
+        miniaturaUrl:
+          type: string
+
+    ContenidoResumen:
+      type: object
+      description: Vista resumida de un ítem de catálogo para listados
+      required:
+        - catalogItemId
+        - titulo
+      properties:
+        catalogItemId:
+          type: string
+        videoAssetId:
+          type: string
+          description: Referencia al asset técnico de Publicación. Solo el ID (RNF-2).
+        titulo:
+          type: string
+        miniaturaUrl:
+          type: string
+        fechaPublicacion:
+          type: string
+          format: date-time
+
+    # RNF-3: envoltorio estándar de paginación de esta API.
+    PaginaDeContenidos:
+      type: object
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContenidoResumen'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    Visibilidad:
+      type: object
+      required:
+        - catalogItemId
+        - visible
+      properties:
+        catalogItemId:
+          type: string
+        visible:
+          type: boolean
+        motivo:
+          type: string
+          description: Si no es visible, por qué (geo, edad, moderación, despublicado)
+          example: bloqueo_geografico
+
+    # ----- Playlists -----
+    Playlist:
+      type: object
+      description: Colección ordenada de contenidos (RF-C4). El orden es el del array items.
+      required:
+        - playlistId
+        - channelId
+        - titulo
+        - visibilidad
+        - items
+      properties:
+        playlistId:
+          type: string
+        channelId:
+          type: string
+        titulo:
+          type: string
+        visibilidad:
+          type: string
+          enum: [publica, noListada, privada]
+        items:
+          type: array
+          description: Ítems en su orden definido
+          items:
+            $ref: '#/components/schemas/ContenidoResumen'
+
+    PlaylistCreacion:
+      type: object
+      required:
+        - channelId
+        - titulo
+      properties:
+        channelId:
+          type: string
+        titulo:
+          type: string
+        visibilidad:
+          type: string
+          enum: [publica, noListada, privada]
+          default: publica
+
+    PlaylistItemAgregar:
+      type: object
+      required:
+        - catalogItemId
+      properties:
+        catalogItemId:
+          type: string
+        posicion:
+          type: integer
+          minimum: 1
+          description: Posición destino (1 = primero). Si se omite, va al final.
+
+    PlaylistReorden:
+      type: object
+      description: Lista completa de IDs en el nuevo orden (reemplaza el orden actual)
+      required:
+        - catalogItemIds
+      properties:
+        catalogItemIds:
+          type: array
+          items:
+            type: string
+
+    # ----- Reclamaciones -----
+    Reclamacion:
+      type: object
+      description: Reclamación de derechos sobre un contenido (RF-C5)
+      required:
+        - claimId
+        - catalogItemId
+        - tipo
+        - estado
+      properties:
+        claimId:
+          type: string
+        catalogItemId:
+          type: string
+        tipo:
+          type: string
+          description: Tipo de derecho reclamado (ej. audio, video completo)
+        estado:
+          type: string
+          enum: [abierta, aceptada, disputada, retirada]
+        fechaCreacion:
+          type: string
+          format: date-time
+        fechaResolucion:
+          type: string
+          format: date-time
+
+    ReclamacionCreacion:
+      type: object
+      required:
+        - tipo
+      properties:
+        tipo:
+          type: string
+        descripcion:
+          type: string
+
+    ReclamacionResolucion:
+      type: object
+      required:
+        - resolucion
+      properties:
+        resolucion:
+          type: string
+          enum: [aceptada, disputada, retirada]
+        aplicarRestriccion:
+          type: boolean
+          default: false
+          description: Si es true y la resolución lo amerita, se restringe el contenido (RF-C5)
+
+    # ----- Restricciones -----
+    Restriccion:
+      type: object
+      description: |
+        Restricción de política sobre un contenido (RF-C6). No se borra al
+        levantarse: conserva estado y fechas para formar el historial.
+      required:
+        - restriccionId
+        - tipo
+        - estado
+        - fechaAplicada
+      properties:
+        restriccionId:
+          type: string
+        tipo:
+          type: string
+          enum: [edad, geo, monetizacion, moderacion]
+        detalle:
+          type: string
+          description: Especificación de la restricción (ej. lista de países, edad mínima)
+        estado:
+          type: string
+          enum: [activa, levantada]
+        fechaAplicada:
+          type: string
+          format: date-time
+        fechaLevantada:
+          type: string
+          format: date-time
+
+    RestriccionCreacion:
+      type: object
+      required:
+        - tipo
+      properties:
+        tipo:
+          type: string
+          enum: [edad, geo, monetizacion, moderacion]
+        detalle:
+          type: string

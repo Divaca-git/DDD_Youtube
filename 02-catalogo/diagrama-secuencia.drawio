@@ -1,0 +1,134 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="catalogo-secuencia" name="Catalogo - Secuencia: del asset a la publicacion">
+    <mxGraphModel dx="1300" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===== Lineas de vida (participantes = contextos) ===== -->
+        <mxCell id="lf_creador" value="Creador" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;" vertex="1" parent="1">
+          <mxGeometry x="25" y="40" width="110" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="lf_publicacion" value="Publicación&#10;(contexto 1)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;" vertex="1" parent="1">
+          <mxGeometry x="165" y="40" width="110" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="lf_catalogo" value="Catálogo&#10;(contexto 2)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="305" y="40" width="110" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="lf_bus" value="Bus de eventos" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="445" y="40" width="110" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="lf_descubrimiento" value="Descubrimiento&#10;(contexto 3)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;" vertex="1" parent="1">
+          <mxGeometry x="605" y="40" width="110" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="lf_audiencia" value="Audiencia&#10;(contexto 4)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;" vertex="1" parent="1">
+          <mxGeometry x="745" y="40" width="110" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="lf_monetizacion" value="Monetización&#10;(contexto 5)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;" vertex="1" parent="1">
+          <mxGeometry x="885" y="40" width="110" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="lf_publicidad" value="Publicidad&#10;(contexto 6)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;" vertex="1" parent="1">
+          <mxGeometry x="1025" y="40" width="110" height="520" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Mensajes (de arriba hacia abajo = paso del tiempo) ===== -->
+
+        <!-- 1. Subida del video (sincrono) -->
+        <mxCell id="m1" value="1. Sube el video (RF-P1)" style="html=1;rounded=0;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="120" as="sourcePoint" />
+            <mxPoint x="220" y="120" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1r" value="videoAssetId" style="html=1;rounded=0;dashed=1;endArrow=open;endFill=0;endSize=12;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="150" as="sourcePoint" />
+            <mxPoint x="80" y="150" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 2. Publicacion procesa y emite el evento (asincrono) -->
+        <mxCell id="m2" value="AssetListoParaPublicacion" style="html=1;rounded=0;endArrow=open;endFill=0;endSize=12;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="195" as="sourcePoint" />
+            <mxPoint x="500" y="195" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="AssetListoParaPublicacion" style="html=1;rounded=0;endArrow=open;endFill=0;endSize=12;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="225" as="sourcePoint" />
+            <mxPoint x="360" y="225" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 3. Creador vincula metadata (sincrono) -->
+        <mxCell id="m4" value="2. POST /contenidos (vincula videoAssetId)" style="html=1;rounded=0;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="275" as="sourcePoint" />
+            <mxPoint x="360" y="275" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m4r" value="201 catalogItemId (borrador)" style="html=1;rounded=0;dashed=1;endArrow=open;endFill=0;endSize=12;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="305" as="sourcePoint" />
+            <mxPoint x="80" y="305" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 4. Creador publica (sincrono) -->
+        <mxCell id="m5" value="3. POST /contenidos/{id}/publicar" style="html=1;rounded=0;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="350" as="sourcePoint" />
+            <mxPoint x="360" y="350" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 5. Catalogo emite el evento ANTES de responder (asincrono) -->
+        <mxCell id="m6" value="ContenidoPublicado" style="html=1;rounded=0;endArrow=open;endFill=0;endSize=12;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="385" as="sourcePoint" />
+            <mxPoint x="500" y="385" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5r" value="200 publicado" style="html=1;rounded=0;dashed=1;endArrow=open;endFill=0;endSize=12;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="415" as="sourcePoint" />
+            <mxPoint x="80" y="415" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 6. El bus reparte a los 4 suscriptores (asincrono) -->
+        <mxCell id="m7" value="ContenidoPublicado (indexa)" style="html=1;rounded=0;endArrow=open;endFill=0;endSize=12;fontSize=10;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="450" as="sourcePoint" />
+            <mxPoint x="660" y="450" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value="ContenidoPublicado (notifica suscriptores)" style="html=1;rounded=0;endArrow=open;endFill=0;endSize=12;fontSize=10;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="478" as="sourcePoint" />
+            <mxPoint x="800" y="478" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="ContenidoPublicado (elegibilidad)" style="html=1;rounded=0;endArrow=open;endFill=0;endSize=12;fontSize=10;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="506" as="sourcePoint" />
+            <mxPoint x="940" y="506" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value="ContenidoPublicado (inventario de anuncios)" style="html=1;rounded=0;endArrow=open;endFill=0;endSize=12;fontSize=10;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="534" as="sourcePoint" />
+            <mxPoint x="1080" y="534" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== Leyenda ===== -->
+        <mxCell id="leyenda" value="Notación: flecha rellena = llamada síncrona (espera respuesta) · flecha abierta = evento asíncrono (no espera) · punteada = respuesta. Nombres de eventos según docs/registro-eventos.md. Catálogo no conoce a sus consumidores: solo publica al bus (bajo acoplamiento, RNF-4)." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#FFF9B2;strokeColor=#d6b656;align=left;spacing=8;fontSize=11;size=14;" vertex="1" parent="1">
+          <mxGeometry x="25" y="600" width="530" height="100" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
