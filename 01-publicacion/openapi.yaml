@@ -1,0 +1,928 @@
+# =====================================================================
+# Contexto 1: Publicación y distribución de contenido — OpenAPI
+# Borrador completo. Cubre RF-P1 a RF-P5.
+# Convenciones del equipo: ver plantilla-openapi-catalogo.yaml
+# Eventos: nombres canónicos según docs/registro-eventos.md
+# =====================================================================
+openapi: 3.0.3
+
+info:
+  title: API de Publicación y Distribución de Contenido
+  version: 1.0.0
+  description: |
+    **Responsabilidad del contexto (entregable 1):**
+    Gestiona el **ciclo de vida técnico del video**: subida, procesamiento,
+    almacenamiento, reproducción y transmisión en vivo.
+    En este contexto el "video" es un **archivo/stream** (asset técnico),
+    no un producto editorial: no tiene título, descripción ni tags, y este
+    contexto no decide si es visible al público (eso es de Catálogo).
+
+    **Eventos que emite:** ContenidoSubido, ProcesamientoFinalizado,
+    AssetListoParaPublicacion, SesionReproduccionCompletada,
+    TransmisionIniciada, TransmisionFinalizada.
+    Cada operación indica en su descripción qué evento emite.
+
+    **Eventos que consume:** ninguno (este contexto está al inicio de la
+    cadena; los demás reaccionan a sus eventos).
+
+    Nombres y payloads según `docs/registro-eventos.md`.
+
+    **Consistencia eventual (RNF-5):** caso límite documentado — un video
+    despublicado en Catálogo mientras alguien lo reproduce. Decisión: las
+    sesiones de reproducción EN CURSO continúan hasta finalizar (este
+    contexto no consulta visibilidad durante la entrega); las NUEVAS
+    reproducciones quedan bloqueadas aguas arriba, porque la validación
+    de visibilidad contra Catálogo ocurre antes de iniciar el flujo.
+
+# RNF-1: por defecto TODAS las operaciones requieren un token.
+# Las operaciones públicas lo desactivan explícitamente con `security: []`.
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Subidas
+    description: Gestión de subida de archivos (RF-P1)
+  - name: Assets
+    description: Procesamiento y consulta de assets técnicos (RF-P2, RF-P5)
+  - name: Reproducción
+    description: Entrega adaptativa y sesiones de playback (RF-P3)
+  - name: Transmisiones
+    description: Transmisión en vivo (RF-P4)
+
+paths:
+
+  # ===================================================================
+  # SUBIDAS (RF-P1)
+  # ===================================================================
+  /subidas:
+    post:
+      tags: [Subidas]
+      summary: Iniciar una subida de video
+      operationId: iniciarSubida
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier creador autenticado.
+
+        Crea una sesión de subida. La subida es un recurso separado del
+        asset: tiene progreso, partes y se puede cancelar; el asset técnico
+        nace recién al completarla con éxito. Cubre RF-P1.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubidaCreacion'
+      responses:
+        '201':
+          description: Sesión de subida creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subida'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /subidas/{uploadId}:
+    get:
+      tags: [Subidas]
+      summary: Consultar el estado de progreso de una subida
+      operationId: obtenerSubida
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño de la
+        subida. Cubre RF-P1 (informar estado de progreso).
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+      responses:
+        '200':
+          description: Estado actual de la subida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    delete:
+      tags: [Subidas]
+      summary: Cancelar una subida en curso
+      operationId: cancelarSubida
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño.
+        Cubre RF-P1 (cancelar). Las partes ya recibidas se descartan.
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+      responses:
+        '204':
+          description: Subida cancelada
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  /subidas/{uploadId}/partes/{numeroParte}:
+    put:
+      tags: [Subidas]
+      summary: Subir una parte del archivo
+      operationId: subirParte
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño.
+
+        Permite subir el archivo por partes; una subida completa equivale
+        a una única parte. Cubre RF-P1 (subir completo o por partes).
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+        - $ref: '#/components/parameters/NumeroParte'
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Parte recibida; devuelve el progreso actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subida'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  /subidas/{uploadId}/completar:
+    post:
+      tags: [Subidas]
+      summary: Validar y completar la subida (crea el asset técnico)
+      operationId: completarSubida
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño.
+
+        Valida que todas las partes llegaron correctamente (RF-P1) y, si
+        es así: crea el **VideoAsset** e **inicia automáticamente el
+        procesamiento** (primer punto de RF-P2). Es una acción (POST)
+        porque ejecuta reglas de negocio y dispara notificaciones.
+
+        **Emite:** `ContenidoSubido`. Luego, de forma asíncrona, el
+        procesamiento emitirá `ProcesamientoFinalizado` y, si fue exitoso,
+        `AssetListoParaPublicacion` (consumido por Catálogo).
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+      responses:
+        '201':
+          description: Subida validada; asset técnico creado, procesamiento en curso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoAsset'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  # ===================================================================
+  # ASSETS (RF-P2, RF-P5)
+  # ===================================================================
+  /assets:
+    get:
+      tags: [Assets]
+      summary: Listar los assets técnicos del creador autenticado
+      operationId: listarAssets
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier creador autenticado;
+        cada uno ve solo sus propios assets.
+        Listado **paginado** según RNF-3. Cubre RF-P5.
+      parameters:
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de assets del creador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeAssets'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /assets/{videoAssetId}:
+    get:
+      tags: [Assets]
+      summary: Consultar el detalle técnico de un asset
+      operationId: obtenerAsset
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño, o el actor
+        "sistema" (otros contextos pueden validar existencia y estado de
+        un asset, consulta síncrona permitida por RNF-4).
+
+        Devuelve duración, formatos disponibles y estado de procesamiento.
+        Cubre RF-P5 y RF-P2 (exponer estado del procesamiento).
+      parameters:
+        - $ref: '#/components/parameters/VideoAssetId'
+      responses:
+        '200':
+          description: Detalle técnico del asset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoAsset'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /assets/{videoAssetId}/reprocesar:
+    post:
+      tags: [Assets]
+      summary: Reintentar un procesamiento fallido
+      operationId: reprocesarAsset
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño.
+
+        Disponible únicamente cuando el procesamiento está en estado
+        "fallido". Cubre RF-P2 (reintentar).
+
+        **Emite:** al terminar, `ProcesamientoFinalizado` y, si fue
+        exitoso, `AssetListoParaPublicacion`.
+      parameters:
+        - $ref: '#/components/parameters/VideoAssetId'
+      responses:
+        '202':
+          description: Reprocesamiento aceptado; corre de forma asíncrona
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoAsset'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  # ===================================================================
+  # REPRODUCCIÓN (RF-P3)
+  # ===================================================================
+  /assets/{videoAssetId}/reproduccion:
+    get:
+      tags: [Reproducción]
+      summary: Obtener la información necesaria para reproducir un asset
+      operationId: obtenerInfoReproduccion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera (reproducción
+        anónima permitida).
+
+        Entrega el manifiesto y las calidades disponibles, adaptando la
+        sugerencia según dispositivo, ancho de banda y región. Cubre RF-P3.
+
+        **Frontera de diseño:** este contexto NO valida visibilidad
+        editorial (restricción del enunciado); esa validación ocurre aguas
+        arriba contra Catálogo antes de iniciar el flujo de reproducción.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/VideoAssetId'
+        - name: dispositivo
+          in: query
+          required: false
+          description: Tipo de dispositivo (movil, tv, escritorio)
+          schema:
+            type: string
+        - name: region
+          in: query
+          required: false
+          description: Región del solicitante, si aplica a la entrega
+          schema:
+            type: string
+        - name: anchoBandaKbps
+          in: query
+          required: false
+          description: Ancho de banda estimado para sugerir calidad inicial
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Información de reproducción
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoReproduccion'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  /sesiones:
+    post:
+      tags: [Reproducción]
+      summary: Iniciar una sesión de reproducción
+      operationId: iniciarSesion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Si hay token, la
+        sesión queda asociada al userId; si no, es anónima.
+
+        Registra el inicio de una sesión de playback. Cubre RF-P3
+        (registrar inicio).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SesionCreacion'
+      responses:
+        '201':
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SesionReproduccion'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /sesiones/{sessionId}:
+    patch:
+      tags: [Reproducción]
+      summary: Actualizar el progreso y las métricas de una sesión
+      operationId: actualizarSesion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** quien posea el sessionId (el
+        identificador actúa como credencial de la sesión).
+
+        Acumula métricas técnicas: posición, calidad utilizada,
+        interrupciones. Cubre RF-P3 (progreso y métricas).
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SesionProgreso'
+      responses:
+        '200':
+          description: Sesión actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SesionReproduccion'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  /sesiones/{sessionId}/finalizar:
+    post:
+      tags: [Reproducción]
+      summary: Finalizar una sesión de reproducción
+      operationId: finalizarSesion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** quien posea el sessionId.
+
+        Cierra la sesión y consolida sus métricas. Cubre RF-P3
+        (finalización).
+
+        **Emite:** `SesionReproduccionCompletada` (consumido por
+        Descubrimiento como señal de watch time — paso 6 del escenario
+        integrador del enunciado).
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Sesión finalizada con su resumen de métricas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SesionReproduccion'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  # ===================================================================
+  # TRANSMISIONES EN VIVO (RF-P4)
+  # ===================================================================
+  /transmisiones:
+    post:
+      tags: [Transmisiones]
+      summary: Configurar una transmisión en vivo
+      operationId: crearTransmision
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier creador autenticado.
+
+        Crea la transmisión y devuelve los **datos de conexión** para
+        emitir desde software externo como OBS (URL de ingesta y
+        streamKey). Cubre RF-P4. Nota de frontera: la transmisión no
+        tiene título ni descripción; eso es metadata editorial de Catálogo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransmisionCreacion'
+      responses:
+        '201':
+          description: Transmisión configurada, con datos de conexión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transmision'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /transmisiones/{liveId}:
+    get:
+      tags: [Transmisiones]
+      summary: Consultar estado y datos de conexión de una transmisión
+      operationId: obtenerTransmision
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño (los
+        datos de conexión incluyen el streamKey, que es secreto).
+        Cubre RF-P4 (proveer datos de conexión).
+      parameters:
+        - $ref: '#/components/parameters/LiveId'
+      responses:
+        '200':
+          description: Estado actual de la transmisión
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transmision'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /transmisiones/{liveId}/iniciar:
+    post:
+      tags: [Transmisiones]
+      summary: Iniciar la transmisión en vivo
+      operationId: iniciarTransmision
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño.
+        Cubre RF-P4 (iniciar).
+
+        **Emite:** `TransmisionIniciada`.
+      parameters:
+        - $ref: '#/components/parameters/LiveId'
+      responses:
+        '200':
+          description: Transmisión en vivo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transmision'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  /transmisiones/{liveId}/pausar:
+    post:
+      tags: [Transmisiones]
+      summary: Pausar la transmisión en vivo
+      operationId: pausarTransmision
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño.
+        Cubre RF-P4 (pausar).
+      parameters:
+        - $ref: '#/components/parameters/LiveId'
+      responses:
+        '200':
+          description: Transmisión pausada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transmision'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  /transmisiones/{liveId}/finalizar:
+    post:
+      tags: [Transmisiones]
+      summary: Finalizar la transmisión y generar el video on-demand
+      operationId: finalizarTransmision
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño.
+
+        Cierra la transmisión y **genera una versión grabada** reutilizable
+        como video on-demand: se crea un nuevo VideoAsset cuyo
+        identificador queda en `vodVideoAssetId`. Cubre RF-P4.
+
+        **Emite:** `TransmisionFinalizada` (incluye el videoAssetId del
+        VOD generado, según el registro de eventos).
+      parameters:
+        - $ref: '#/components/parameters/LiveId'
+      responses:
+        '200':
+          description: Transmisión finalizada; VOD generado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transmision'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+components:
+
+  # RNF-1: cómo se identifica al actor.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token emitido por la plataforma de identidad compartida (el login
+        con Google queda FUERA de los bounded contexts según el enunciado).
+        El token identifica al actor: creador, viewer o sistema.
+
+  parameters:
+    UploadId:
+      name: uploadId
+      in: path
+      required: true
+      description: Identificador de la sesión de subida
+      schema:
+        type: string
+    NumeroParte:
+      name: numeroParte
+      in: path
+      required: true
+      description: Número de la parte del archivo (desde 1)
+      schema:
+        type: integer
+        minimum: 1
+    VideoAssetId:
+      name: videoAssetId
+      in: path
+      required: true
+      description: Identificador del asset técnico (compartido, RNF-2)
+      schema:
+        type: string
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      description: Identificador de la sesión de reproducción
+      schema:
+        type: string
+    LiveId:
+      name: liveId
+      in: path
+      required: true
+      description: Identificador de la transmisión en vivo
+      schema:
+        type: string
+    Pagina:
+      name: pagina
+      in: query
+      required: false
+      description: Número de página, desde 1 (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    TamanoPagina:
+      name: tamanoPagina
+      in: query
+      required: false
+      description: Cantidad de ítems por página (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  # RNF-3: respuestas de error reutilizables.
+  responses:
+    PeticionInvalida:
+      description: Cuerpo o parámetros inválidos (400)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoAutenticado:
+      description: Falta el token o es inválido (401)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    SinPermiso:
+      description: El actor autenticado no puede ejecutar esta operación (403)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoEncontrado:
+      description: El recurso no existe (404)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflicto:
+      description: La operación no es válida en el estado actual del recurso (409)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+
+    # RNF-3: formato de error único de esta API.
+    Error:
+      type: object
+      description: Formato de error consistente del contexto Publicación (RNF-3)
+      required:
+        - codigo
+        - mensaje
+      properties:
+        codigo:
+          type: string
+          description: Código estable legible por máquina
+          example: SUBIDA_INCOMPLETA
+        mensaje:
+          type: string
+          description: Explicación legible por humanos
+          example: Faltan partes por subir antes de completar
+        detalles:
+          type: array
+          description: Información adicional opcional
+          items:
+            type: string
+
+    # ----- Subidas -----
+    Subida:
+      type: object
+      description: |
+        Sesión de subida (RF-P1). Es un proceso, no el asset: tiene
+        progreso, partes y se puede cancelar. El VideoAsset nace al
+        completarla con éxito.
+      required:
+        - uploadId
+        - estado
+        - tamanoTotalBytes
+      properties:
+        uploadId:
+          type: string
+        estado:
+          type: string
+          enum: [iniciada, enCurso, completada, cancelada]
+        tamanoTotalBytes:
+          type: integer
+        partesEsperadas:
+          type: integer
+        partesRecibidas:
+          type: integer
+        fechaInicio:
+          type: string
+          format: date-time
+
+    SubidaCreacion:
+      type: object
+      description: Datos para iniciar una subida (RF-P1). El dueño sale del token.
+      required:
+        - tamanoTotalBytes
+      properties:
+        tamanoTotalBytes:
+          type: integer
+          description: Tamaño total del archivo en bytes
+        partesEsperadas:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Cantidad de partes (1 = subida completa de una vez)
+
+    # ----- Assets -----
+    # RNF-2: este VideoAsset es la versión TÉCNICA del concepto "video".
+    # No tiene título, descripción ni tags: eso vive en Catálogo.
+    VideoAsset:
+      type: object
+      description: |
+        El "video" según Publicación: un archivo/stream con su estado de
+        procesamiento. Sin metadata editorial (restricción de diseño).
+      required:
+        - videoAssetId
+        - estadoProcesamiento
+        - origen
+      properties:
+        videoAssetId:
+          type: string
+          description: Identificador compartido entre contextos (RNF-2)
+        estadoProcesamiento:
+          type: string
+          enum: [pendiente, enCurso, completado, fallido]
+        duracionSeg:
+          type: integer
+        calidades:
+          type: array
+          description: Calidades generadas (RF-P2)
+          items:
+            type: string
+          example: ["360p", "720p", "1080p"]
+        origen:
+          type: string
+          enum: [subida, transmision]
+          description: Si nació de una subida o como VOD de un live
+        fechaCreacion:
+          type: string
+          format: date-time
+
+    # RNF-3: envoltorio estándar de paginación de esta API.
+    PaginaDeAssets:
+      type: object
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/VideoAsset'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    # ----- Reproducción -----
+    InfoReproduccion:
+      type: object
+      description: Información para reproducir en un dispositivo dado (RF-P3)
+      required:
+        - videoAssetId
+        - manifestUrl
+        - calidadesDisponibles
+      properties:
+        videoAssetId:
+          type: string
+        manifestUrl:
+          type: string
+          description: URL del manifiesto de streaming adaptativo
+        calidadesDisponibles:
+          type: array
+          items:
+            type: string
+        calidadSugerida:
+          type: string
+          description: Sugerencia según dispositivo y ancho de banda
+
+    SesionReproduccion:
+      type: object
+      description: Sesión de playback con sus métricas técnicas (RF-P3)
+      required:
+        - sessionId
+        - videoAssetId
+        - estado
+      properties:
+        sessionId:
+          type: string
+        videoAssetId:
+          type: string
+        userId:
+          type: string
+          description: Presente solo si la sesión no es anónima
+        dispositivo:
+          type: string
+        estado:
+          type: string
+          enum: [activa, finalizada]
+        duracionVistaSeg:
+          type: integer
+        calidadUsada:
+          type: string
+        interrupciones:
+          type: integer
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+
+    SesionCreacion:
+      type: object
+      required:
+        - videoAssetId
+      properties:
+        videoAssetId:
+          type: string
+        dispositivo:
+          type: string
+        calidadInicial:
+          type: string
+
+    SesionProgreso:
+      type: object
+      description: Métricas acumulables de la sesión (RF-P3)
+      properties:
+        posicionSeg:
+          type: integer
+        calidadActual:
+          type: string
+        interrupciones:
+          type: integer
+          description: Interrupciones nuevas desde la última actualización
+
+    # ----- Transmisiones -----
+    Transmision:
+      type: object
+      description: Transmisión en vivo (RF-P4). Sin metadata editorial.
+      required:
+        - liveId
+        - estado
+        - datosConexion
+      properties:
+        liveId:
+          type: string
+        estado:
+          type: string
+          enum: [configurada, enVivo, pausada, finalizada]
+        datosConexion:
+          $ref: '#/components/schemas/DatosConexion'
+        vodVideoAssetId:
+          type: string
+          description: Asset del VOD generado al finalizar (RF-P4)
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+
+    TransmisionCreacion:
+      type: object
+      description: Configuración técnica de la transmisión (RF-P4)
+      properties:
+        calidadMaxima:
+          type: string
+          description: Calidad máxima de ingesta (ej. 1080p)
+        dvrHabilitado:
+          type: boolean
+          default: false
+          description: Permitir retroceder durante el vivo
+
+    DatosConexion:
+      type: object
+      description: Datos para emitir desde software externo como OBS (RF-P4)
+      required:
+        - urlIngesta
+        - streamKey
+      properties:
+        urlIngesta:
+          type: string
+          description: URL del servidor de ingesta (ej. RTMP)
+        streamKey:
+          type: string
+          description: Clave secreta de emisión; no compartir
