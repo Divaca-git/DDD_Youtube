@@ -1,0 +1,14 @@
+# Archivos temporales de draw.io
+*.drawio.bak
+*~
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/
+.idea/
+
+# Backups de Swagger / OpenAPI
+*.swp

@@ -1,0 +1,342 @@
+# =====================================================================
+# PLANTILLA DEL EQUIPO — Contexto 2: Catálogo editorial y derechos
+# Esta plantilla muestra CÓMO cumplir los RNF transversales del enunciado.
+# Cada integrante debe replicar estas convenciones en sus propios contextos.
+# Validar siempre en https://editor.swagger.io antes de commitear.
+# =====================================================================
+openapi: 3.0.3
+
+info:
+  title: API de Catálogo Editorial y Derechos
+  version: 1.0.0
+  description: |
+    **Responsabilidad del contexto (entregable 1):**
+    Define qué contenido existe públicamente, cómo se presenta y bajo qué
+    reglas puede mostrarse (legales, territoriales, etarias, de moderación).
+    En este contexto el "video" es un **ítem de catálogo**, no un archivo:
+    un asset puede existir sin estar publicado, y la visibilidad depende de
+    reglas editoriales, no de infraestructura de streaming.
+
+    **Eventos que emite:** ContenidoPublicado, ContenidoDespublicado,
+    ContenidoActualizado, RestriccionAplicada, RestriccionLevantada,
+    ReclamacionCreada, ReclamacionResuelta.
+
+    **Eventos que consume:** AssetListoParaPublicacion (desde Publicación).
+
+    Nombres y payloads según `docs/registro-eventos.md`.
+
+    **Consistencia eventual (RNF-5):** este contexto asume que Descubrimiento
+    y Publicidad pueden referenciar contenido recién despublicado durante una
+    ventana corta. Caso límite documentado: si se consulta la visibilidad de
+    un contenido despublicado, la API responde **410 Gone** (existió, ya no
+    está disponible), distinto de 404 (nunca existió).
+
+# ---------------------------------------------------------------------
+# RNF-1 (parte 1): por defecto TODAS las operaciones requieren un token.
+# Las operaciones públicas lo desactivan explícitamente con `security: []`.
+# ---------------------------------------------------------------------
+security:
+  - bearerAuth: []
+
+paths:
+
+  /canales/{canalId}:
+    get:
+      summary: Consultar información pública de un canal
+      operationId: obtenerCanal
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Endpoint público,
+        no requiere autenticación.
+      security: []   # anula el requisito global: operación pública
+      parameters:
+        - $ref: '#/components/parameters/CanalId'
+      responses:
+        '200':
+          description: Canal encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Canal'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    patch:
+      summary: Actualizar la información pública del canal
+      operationId: actualizarCanal
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño del canal.
+        Cubre RF-C1 (actualizar nombre, descripción, imagen).
+      parameters:
+        - $ref: '#/components/parameters/CanalId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanalActualizacion'
+      responses:
+        '200':
+          description: Canal actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Canal'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /canales/{canalId}/contenidos:
+    get:
+      summary: Listar el contenido publicado de un canal
+      operationId: listarContenidosDeCanal
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. El resultado se
+        filtra según la visibilidad aplicable al solicitante.
+        Listado **paginado** según RNF-3. Cubre RF-C1.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CanalId'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de contenidos del canal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeContenidos'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /contenidos/{catalogItemId}/visibilidad:
+    get:
+      summary: Consultar si un contenido es visible para un usuario dado
+      operationId: consultarVisibilidad
+      description: |
+        **Quién puede ejecutarla (RNF-1):** otros contextos (actor "sistema")
+        o clientes autenticados.
+
+        Esta es la **consulta síncrona** que el RNF-4 permite ("validar
+        existencia o visibilidad"). Por ejemplo, Descubrimiento la invoca
+        antes de servir una recomendación. Cubre RF-C3.
+      parameters:
+        - name: catalogItemId
+          in: path
+          required: true
+          description: ID compartido del ítem de catálogo (RNF-2)
+          schema:
+            type: string
+        - name: pais
+          in: query
+          required: false
+          description: País del solicitante (para bloqueo geográfico)
+          schema:
+            type: string
+        - name: edad
+          in: query
+          required: false
+          description: Edad del solicitante (para restricción etaria)
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Estado de visibilidad del contenido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Visibilidad'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '410':
+          description: |
+            El contenido existió pero fue despublicado o restringido.
+            Caso límite de consistencia eventual documentado (RNF-5).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+
+  # -------------------------------------------------------------------
+  # RNF-1 (parte 2): cómo se identifica al actor.
+  # -------------------------------------------------------------------
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token emitido por la plataforma de identidad compartida (el login
+        con Google queda FUERA de los bounded contexts según el enunciado).
+        El token identifica al actor: creador, viewer, anunciante o sistema.
+
+  # -------------------------------------------------------------------
+  # RNF-3 (parte 1): parámetros de paginación reutilizables.
+  # -------------------------------------------------------------------
+  parameters:
+    CanalId:
+      name: canalId
+      in: path
+      required: true
+      description: Identificador del canal (channelId compartido, RNF-2)
+      schema:
+        type: string
+    Pagina:
+      name: pagina
+      in: query
+      required: false
+      description: Número de página, desde 1 (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    TamanoPagina:
+      name: tamanoPagina
+      in: query
+      required: false
+      description: Cantidad de ítems por página (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  # -------------------------------------------------------------------
+  # RNF-3 (parte 2): respuestas de error reutilizables.
+  # -------------------------------------------------------------------
+  responses:
+    NoAutenticado:
+      description: Falta el token o es inválido (401)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    SinPermiso:
+      description: El actor autenticado no puede ejecutar esta operación (403)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoEncontrado:
+      description: El recurso no existe (404)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+
+    # RNF-3 (parte 3): formato de error consistente para TODA esta API.
+    Error:
+      type: object
+      description: Formato de error único del contexto Catálogo (RNF-3)
+      required:
+        - codigo
+        - mensaje
+      properties:
+        codigo:
+          type: string
+          description: Código estable legible por máquina
+          example: CANAL_NO_ENCONTRADO
+        mensaje:
+          type: string
+          description: Explicación legible por humanos
+          example: No existe un canal con ese identificador
+        detalles:
+          type: array
+          description: Información adicional opcional (ej. errores por campo)
+          items:
+            type: string
+
+    # RNF-2: este Canal es la versión EDITORIAL del concepto.
+    # Otros contextos definen SU propio Canal con otros campos.
+    Canal:
+      type: object
+      required:
+        - id
+        - nombre
+      properties:
+        id:
+          type: string
+          description: channelId compartido entre contextos (RNF-2)
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        imagenUrl:
+          type: string
+        fechaCreacion:
+          type: string
+          format: date-time
+
+    CanalActualizacion:
+      type: object
+      description: Campos editables de la información pública (RF-C1)
+      properties:
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        imagenUrl:
+          type: string
+
+    ContenidoResumen:
+      type: object
+      description: Vista resumida de un ítem de catálogo para listados
+      required:
+        - catalogItemId
+        - titulo
+      properties:
+        catalogItemId:
+          type: string
+        videoAssetId:
+          type: string
+          description: Referencia al asset técnico de Publicación. Solo el ID (RNF-2).
+        titulo:
+          type: string
+        miniaturaUrl:
+          type: string
+        fechaPublicacion:
+          type: string
+          format: date-time
+
+    # RNF-3 (parte 4): envoltorio estándar de paginación de esta API.
+    PaginaDeContenidos:
+      type: object
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContenidoResumen'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    Visibilidad:
+      type: object
+      required:
+        - catalogItemId
+        - visible
+      properties:
+        catalogItemId:
+          type: string
+        visible:
+          type: boolean
+        motivo:
+          type: string
+          description: Si no es visible, por qué (geo, edad, moderación, despublicado)
+          example: bloqueo_geografico
