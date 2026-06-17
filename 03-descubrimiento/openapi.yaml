@@ -1,0 +1,559 @@
+# =====================================================================
+# Contexto 3: Descubrimiento y personalización — OpenAPI
+# Borrador completo. Cubre RF-D1 a RF-D6.
+# Convenciones del equipo: ver plantilla-openapi-catalogo.yaml
+# Eventos: nombres canónicos según docs/registro-eventos.md
+# =====================================================================
+openapi: 3.0.3
+
+info:
+  title: API de Descubrimiento y Personalización
+  version: 1.0.0
+  description: |
+    **Responsabilidad del contexto (entregable 1):**
+    Decide **qué contenido se muestra y en qué orden**: búsqueda, feed de
+    inicio, contenido relacionado, tendencias y exploración. Mantiene un
+    índice de contenido y un perfil de intereses por usuario.
+    En este contexto el "video" es un **candidato de ranking**: una
+    referencia ligera con señales, no el archivo ni la ficha editorial
+    completa.
+
+    **Eventos que emite:** BusquedaRealizada, RecomendacionServida (opcional).
+
+    **Eventos que consume:**
+    - ContenidoPublicado, ContenidoActualizado, ContenidoDespublicado,
+      RestriccionAplicada / RestriccionLevantada (desde Catálogo) → mantienen
+      el índice. RF-D6 NO tiene endpoints: el índice se actualiza solo,
+      reaccionando a eventos (integración sin acoplamiento, RNF-4).
+    - SenalEngagement (desde Audiencia) → alimenta el ranking.
+    - SesionReproduccionCompletada (desde Publicación) → watch time como
+      señal de interés (RF-D5).
+
+    Nombres y payloads según `docs/registro-eventos.md`.
+
+    **Restricción de diseño (del enunciado):** este contexto devuelve
+    **referencias a contenido**, no toda la metadata ni el stream, y NO
+    define reglas de visibilidad: las respeta consultando a Catálogo.
+
+    **Consistencia eventual (RNF-5):** caso límite documentado — un
+    contenido despublicado en Catálogo puede seguir en el índice durante
+    una ventana corta y aparecer en un feed. Por eso, antes de servir
+    resultados sensibles, este contexto puede validar visibilidad de forma
+    síncrona contra Catálogo (RNF-4); si un ítem ya no es visible, se filtra
+    del resultado.
+
+# RNF-1: por defecto TODAS las operaciones requieren un token.
+# Las operaciones públicas lo desactivan explícitamente con `security: []`.
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Búsqueda
+    description: Búsqueda de contenido y canales (RF-D1)
+  - name: Feed
+    description: Feed de inicio personalizado (RF-D2)
+  - name: Relacionados
+    description: Contenido relacionado (RF-D3)
+  - name: Tendencias
+    description: Trending y exploración por categoría (RF-D4)
+  - name: Señales
+    description: Captura de señales y perfil de intereses (RF-D5)
+
+paths:
+
+  # ===================================================================
+  # BÚSQUEDA (RF-D1)
+  # ===================================================================
+  /busqueda:
+    get:
+      tags: [Búsqueda]
+      summary: Buscar contenido o canales por texto libre
+      operationId: buscar
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera (búsqueda anónima
+        permitida). Si hay token, los resultados se personalizan.
+
+        Permite filtrar (tipo, fecha, duración) y ordenar (relevancia,
+        fecha, popularidad). Resultados **paginados** (RNF-3). Cubre RF-D1.
+
+        **Emite:** `BusquedaRealizada`.
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Texto de búsqueda
+          schema:
+            type: string
+        - name: tipo
+          in: query
+          required: false
+          description: Qué buscar
+          schema:
+            type: string
+            enum: [video, canal, todo]
+            default: todo
+        - name: duracion
+          in: query
+          required: false
+          description: Filtro por duración
+          schema:
+            type: string
+            enum: [corto, medio, largo]
+        - name: orden
+          in: query
+          required: false
+          description: Criterio de ordenamiento
+          schema:
+            type: string
+            enum: [relevancia, fecha, popularidad]
+            default: relevancia
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Resultados de búsqueda paginados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeResultados'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+
+  /busqueda/sugerencias:
+    get:
+      tags: [Búsqueda]
+      summary: Obtener sugerencias de autocompletado
+      operationId: sugerenciasBusqueda
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera.
+        Devuelve sugerencias mientras el usuario escribe. Cubre RF-D1.
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Texto parcial escrito hasta el momento
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de sugerencias de texto
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sugerencias:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+
+  # ===================================================================
+  # FEED PERSONALIZADO (RF-D2)
+  # ===================================================================
+  /feed:
+    get:
+      tags: [Feed]
+      summary: Obtener el feed de inicio personalizado
+      operationId: obtenerFeed
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Con token el feed
+        se personaliza según el perfil de intereses; sin token, devuelve un
+        feed genérico (popular/trending).
+
+        Cada ítem incluye un `motivo` que explica por qué se recomienda
+        (ej. "porque viste X"), cubriendo RF-D2. **Paginado** (RNF-3).
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Feed personalizado paginado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeFeed'
+
+  # ===================================================================
+  # CONTENIDO RELACIONADO (RF-D3)
+  # ===================================================================
+  /contenidos/{catalogItemId}/relacionados:
+    get:
+      tags: [Relacionados]
+      summary: Obtener contenido relacionado a un ítem dado
+      operationId: obtenerRelacionados
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera.
+
+        Devuelve videos relacionados considerando similitud temática,
+        historial y señales de engagement. Cubre RF-D3. Devuelve
+        referencias, no metadata completa (restricción de diseño).
+      security: []
+      parameters:
+        - name: catalogItemId
+          in: path
+          required: true
+          description: ID del contenido base (compartido con Catálogo, RNF-2)
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Lista de contenido relacionado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeResultados'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # TENDENCIAS Y EXPLORACIÓN (RF-D4)
+  # ===================================================================
+  /tendencias:
+    get:
+      tags: [Tendencias]
+      summary: Obtener contenido trending
+      operationId: obtenerTendencias
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera.
+        Calcula trending por región y/o categoría. Cubre RF-D4.
+      security: []
+      parameters:
+        - name: region
+          in: query
+          required: false
+          description: Región para la cual calcular tendencias
+          schema:
+            type: string
+        - name: categoria
+          in: query
+          required: false
+          description: Categoría para acotar las tendencias
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Contenido trending paginado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeResultados'
+
+  /categorias/{categoria}/contenidos:
+    get:
+      tags: [Tendencias]
+      summary: Explorar contenido por categoría
+      operationId: explorarCategoria
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera.
+        Permite explorar contenido de una categoría o tema. Cubre RF-D4.
+      security: []
+      parameters:
+        - name: categoria
+          in: path
+          required: true
+          description: Categoría o tema a explorar
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Contenido de la categoría, paginado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeResultados'
+
+  # ===================================================================
+  # SEÑALES Y PERFIL DE INTERESES (RF-D5)
+  # ===================================================================
+  /senales/impresion:
+    post:
+      tags: [Señales]
+      summary: Registrar que un ítem fue visto en un feed (impresión)
+      operationId: registrarImpresion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera; con token la señal
+        se asocia al usuario y enriquece su perfil de intereses.
+
+        Cubre RF-D5 (registrar impresión). El watch time NO se registra
+        aquí: llega de forma asíncrona vía `SesionReproduccionCompletada`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SenalImpresion'
+      responses:
+        '202':
+          description: Señal aceptada (procesamiento asíncrono)
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+
+  /senales/click:
+    post:
+      tags: [Señales]
+      summary: Registrar un click sobre un ítem recomendado
+      operationId: registrarClick
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera; con token la señal
+        se asocia al usuario. Cubre RF-D5 (registrar click).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SenalClick'
+      responses:
+        '202':
+          description: Señal aceptada (procesamiento asíncrono)
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+
+  /perfil-intereses:
+    get:
+      tags: [Señales]
+      summary: Consultar el perfil de intereses del usuario autenticado
+      operationId: obtenerPerfilIntereses
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el usuario dueño del
+        perfil. Cubre RF-D5 (exponer el perfil de intereses derivado de
+        las señales).
+      responses:
+        '200':
+          description: Perfil de intereses del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerfilIntereses'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+    delete:
+      tags: [Señales]
+      summary: Reiniciar el perfil de intereses (privacidad)
+      operationId: reiniciarPerfilIntereses
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el usuario dueño.
+        Permite al usuario borrar su perfil de personalización por
+        privacidad. Cubre RF-D5.
+      responses:
+        '204':
+          description: Perfil de intereses reiniciado
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+components:
+
+  # RNF-1: cómo se identifica al actor.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token emitido por la plataforma de identidad compartida (el login
+        con Google queda FUERA de los bounded contexts según el enunciado).
+        El token identifica al actor: viewer o sistema.
+
+  parameters:
+    Pagina:
+      name: pagina
+      in: query
+      required: false
+      description: Número de página, desde 1 (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    TamanoPagina:
+      name: tamanoPagina
+      in: query
+      required: false
+      description: Cantidad de ítems por página (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  # RNF-3: respuestas de error reutilizables.
+  responses:
+    PeticionInvalida:
+      description: Cuerpo o parámetros inválidos (400)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoAutenticado:
+      description: Falta el token o es inválido (401)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoEncontrado:
+      description: El recurso no existe (404)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+
+    # RNF-3: formato de error único de esta API.
+    Error:
+      type: object
+      description: Formato de error consistente del contexto Descubrimiento (RNF-3)
+      required:
+        - codigo
+        - mensaje
+      properties:
+        codigo:
+          type: string
+          example: PARAMETRO_INVALIDO
+        mensaje:
+          type: string
+          example: El parámetro de búsqueda 'q' es obligatorio
+        detalles:
+          type: array
+          items:
+            type: string
+
+    # ----- Referencia ligera a contenido -----
+    # RNF-2 + restricción de diseño: este contexto NO duplica el modelo de
+    # Catálogo. Devuelve una REFERENCIA con lo mínimo para pintar la tarjeta.
+    ReferenciaContenido:
+      type: object
+      description: |
+        Referencia ligera a un contenido. Para el detalle completo, el
+        cliente consulta a Catálogo con el catalogItemId. No incluye stream
+        ni metadata editorial completa (restricción de diseño del enunciado).
+      required:
+        - catalogItemId
+        - tipo
+      properties:
+        catalogItemId:
+          type: string
+          description: ID compartido para resolver el detalle en Catálogo (RNF-2)
+        tipo:
+          type: string
+          enum: [video, canal]
+        titulo:
+          type: string
+          description: Copia mínima para mostrar la tarjeta, no fuente de verdad
+        miniaturaUrl:
+          type: string
+        channelId:
+          type: string
+
+    PaginaDeResultados:
+      type: object
+      description: Página estándar de referencias (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReferenciaContenido'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    # ----- Feed -----
+    ItemFeed:
+      type: object
+      description: Entrada del feed = referencia + explicación de por qué se recomienda (RF-D2)
+      required:
+        - contenido
+      properties:
+        contenido:
+          $ref: '#/components/schemas/ReferenciaContenido'
+        motivo:
+          type: string
+          description: Explicación de la recomendación (ej. "porque viste X")
+          example: porque viste contenido de cocina
+
+    PaginaDeFeed:
+      type: object
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemFeed'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+
+    # ----- Señales -----
+    SenalImpresion:
+      type: object
+      required:
+        - catalogItemId
+      properties:
+        catalogItemId:
+          type: string
+        posicionEnFeed:
+          type: integer
+          description: Posición en la que se mostró el ítem
+        contexto:
+          type: string
+          enum: [feed, busqueda, relacionados, tendencias]
+
+    SenalClick:
+      type: object
+      required:
+        - catalogItemId
+      properties:
+        catalogItemId:
+          type: string
+        contexto:
+          type: string
+          enum: [feed, busqueda, relacionados, tendencias]
+
+    PerfilIntereses:
+      type: object
+      description: |
+        Perfil de personalización del usuario, derivado de sus señales
+        (RF-D5). Es interno a Descubrimiento; otros contextos no lo conocen.
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+        categoriasInteres:
+          type: array
+          description: Categorías ponderadas por interés
+          items:
+            type: object
+            properties:
+              categoria:
+                type: string
+              peso:
+                type: number
+                format: float
+        fechaActualizacion:
+          type: string
+          format: date-time
