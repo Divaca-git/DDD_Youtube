@@ -1,0 +1,1569 @@
+# =====================================================================
+# Contexto 4: Audiencia, comunidad y engagement — OpenAPI
+# Borrador completo. Cubre RF-A1 a RF-A6.
+# Convenciones del equipo: ver docs/plantilla-openapi.yaml
+# Eventos: nombres canónicos según docs/registro-eventos.md
+# =====================================================================
+openapi: 3.0.3
+
+info:
+  title: API de Audiencia, Comunidad y Engagement
+  version: 1.0.0
+  description: |
+    **Responsabilidad del contexto (entregable 1):**
+    Gestiona la **relación social** entre usuarios, creadores y contenido:
+    suscripciones a canales, reacciones (like/dislike), comentarios,
+    notificaciones, historial personal y posts de comunidad del creador.
+    En este contexto el "canal" es un **perfil social** (no una entidad
+    editorial) y la "suscripción" es una relación de seguimiento, no un
+    pago (eso corresponde a Monetización).
+
+    Este contexto **no toma decisiones de ranking ni recomendación**: emite
+    señales de engagement que Descubrimiento consume, pero el algoritmo
+    vive en ese contexto, no aquí.
+
+    **Eventos que emite:** UsuarioSuscrito, UsuarioDesuscrito,
+    ComentarioPublicado, ComentarioEliminado, ReaccionRegistrada,
+    SenalEngagement.
+    Cada operación indica en su descripción qué evento emite.
+
+    **Eventos que consume:**
+    - ContenidoPublicado (Catálogo): para disparar notificaciones a suscriptores
+      y registrar el ítem en historial.
+    - ContenidoDespublicado / RestriccionAplicada (Catálogo): para ocultar
+      interacciones asociadas al contenido si ya no es visible.
+
+    Nombres y payloads según `docs/registro-eventos.md`.
+
+    **Consistencia eventual (RNF-5):** caso límite documentado — un
+    contenido es despublicado en Catálogo mientras tiene comentarios
+    activos. Decisión: los comentarios ya existentes no se borran
+    automáticamente; se marcan internamente como `ocultos` en cuanto
+    este contexto procesa el evento `ContenidoDespublicado`. Si un
+    cliente solicita los comentarios de ese contenido antes de que el
+    evento sea procesado, la API devuelve los comentarios disponibles
+    con el encabezado `X-Contenido-Visibilidad: pendiente-verificacion`.
+
+# RNF-1: por defecto TODAS las operaciones requieren un token.
+# Las operaciones públicas lo desactivan explícitamente con `security: []`.
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Suscripciones
+    description: Seguimiento de canales (RF-A1)
+  - name: Reacciones
+    description: Likes, dislikes y otras reacciones (RF-A2)
+  - name: Comentarios
+    description: Publicación y gestión de comentarios (RF-A3)
+  - name: Notificaciones
+    description: Notificaciones de actividad relevante (RF-A4)
+  - name: Historial
+    description: Historial de visualización y listas personales (RF-A5)
+  - name: Comunidad
+    description: Posts y comunidad del canal (RF-A6)
+
+paths:
+
+  # ===================================================================
+  # SUSCRIPCIONES (RF-A1)
+  # ===================================================================
+  /canales/{channelId}/suscripcion:
+    put:
+      tags: [Suscripciones]
+      summary: Suscribirse a un canal
+      operationId: suscribirseACanal
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier viewer autenticado.
+
+        Crea o confirma la suscripción del usuario al canal indicado.
+        Es idempotente: si ya existe, devuelve 200 en vez de 201.
+        Incrementa el conteo de suscriptores del canal. Cubre RF-A1.
+
+        **Emite:** `UsuarioSuscrito` — payload: `{ userId, channelId }`.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: Suscripción ya existía; sin cambios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Suscripcion'
+        '201':
+          description: Suscripción creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Suscripcion'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    delete:
+      tags: [Suscripciones]
+      summary: Dejar de seguir un canal
+      operationId: desuscribirseDeCanal
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el usuario autenticado dueño
+        de la suscripción. Decrementa el conteo de suscriptores. Cubre RF-A1.
+
+        **Emite:** `UsuarioDesuscrito` — payload: `{ userId, channelId }`.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '204':
+          description: Suscripción eliminada
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /usuarios/{userId}/suscripciones:
+    get:
+      tags: [Suscripciones]
+      summary: Listar los canales seguidos por un usuario
+      operationId: listarSuscripciones
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el propio usuario autenticado.
+        Otros actores no pueden listar las suscripciones privadas de otro.
+        Listado **paginado** según RNF-3. Cubre RF-A1.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de suscripciones del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeSuscripciones'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /canales/{channelId}/suscriptores/conteo:
+    get:
+      tags: [Suscripciones]
+      summary: Consultar el conteo de suscriptores de un canal
+      operationId: obtenerConteoSuscriptores
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Endpoint público.
+
+        Expone únicamente el total de suscriptores, no la lista de quiénes
+        son (privacidad). Lo usan otros contextos (ej. Monetización al
+        evaluar elegibilidad RF-M1) mediante **consulta síncrona** (RNF-4).
+        Cubre RF-A1.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: Conteo de suscriptores
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConteoSuscriptores'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # REACCIONES (RF-A2)
+  # ===================================================================
+  /contenidos/{catalogItemId}/reaccion:
+    put:
+      tags: [Reacciones]
+      summary: Registrar o actualizar una reacción a un contenido
+      operationId: registrarReaccion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier viewer autenticado.
+
+        Crea o reemplaza la reacción del usuario al contenido indicado
+        (solo puede haber una reacción activa por usuario por contenido).
+        Es idempotente: si la reacción ya tiene ese tipo, devuelve 200.
+        Cubre RF-A2.
+
+        **Emite:** `ReaccionRegistrada` — payload:
+        `{ catalogItemId, userId, tipo }`.
+
+        **Emite también:** `SenalEngagement` — payload agregado para
+        Descubrimiento (ver docs/registro-eventos.md, decisión abierta 3).
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReaccionCreacion'
+      responses:
+        '200':
+          description: Reacción ya existía con ese tipo; sin cambios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reaccion'
+        '201':
+          description: Reacción creada o tipo cambiado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reaccion'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    delete:
+      tags: [Reacciones]
+      summary: Eliminar la reacción del usuario a un contenido
+      operationId: eliminarReaccion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el usuario autenticado dueño
+        de la reacción. Cubre RF-A2 (cambiar o eliminar reacción previa).
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      responses:
+        '204':
+          description: Reacción eliminada
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /contenidos/{catalogItemId}/reacciones/totales:
+    get:
+      tags: [Reacciones]
+      summary: Consultar totales agregados de reacciones de un contenido
+      operationId: obtenerTotalesReacciones
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Endpoint público.
+
+        Devuelve el conteo de cada tipo de reacción. No expone quiénes
+        reaccionaron. Cubre RF-A2.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      responses:
+        '200':
+          description: Totales de reacciones por tipo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotalesReacciones'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # COMENTARIOS (RF-A3)
+  # ===================================================================
+  /contenidos/{catalogItemId}/comentarios:
+    get:
+      tags: [Comentarios]
+      summary: Listar comentarios de un contenido
+      operationId: listarComentarios
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Endpoint público.
+
+        Devuelve comentarios de nivel raíz (sin padre). Las respuestas a
+        un comentario se obtienen por separado desde
+        `GET /comentarios/{commentId}/respuestas`. Listado **paginado**
+        según RNF-3. Cubre RF-A3.
+
+        **Consistencia eventual (RNF-5):** si el contenido fue
+        despublicado recientemente y el evento aún no se procesó,
+        la API responde con los comentarios disponibles más el encabezado
+        `X-Contenido-Visibilidad: pendiente-verificacion`.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+        - name: orden
+          in: query
+          required: false
+          description: Criterio de ordenamiento de los comentarios
+          schema:
+            type: string
+            enum: [recientes, destacados]
+            default: recientes
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de comentarios del contenido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeComentarios'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    post:
+      tags: [Comentarios]
+      summary: Publicar un comentario en un contenido
+      operationId: publicarComentario
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier viewer autenticado.
+
+        Crea un comentario raíz. Para responder a un comentario existente
+        usar `POST /comentarios/{commentId}/respuestas`. Cubre RF-A3.
+
+        **Emite:** `ComentarioPublicado` — payload:
+        `{ commentId, catalogItemId, userId }`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComentarioCreacion'
+      responses:
+        '201':
+          description: Comentario publicado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comentario'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /comentarios/{commentId}:
+    patch:
+      tags: [Comentarios]
+      summary: Editar un comentario propio
+      operationId: editarComentario
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el autor del comentario.
+        Se actualiza solo el texto; el historial de edición es interno.
+        Cubre RF-A3.
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComentarioEdicion'
+      responses:
+        '200':
+          description: Comentario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comentario'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    delete:
+      tags: [Comentarios]
+      summary: Eliminar un comentario
+      operationId: eliminarComentario
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el autor del comentario o el
+        creador del canal donde está publicado el contenido. Cubre RF-A3.
+
+        **Emite:** `ComentarioEliminado` — payload:
+        `{ commentId, catalogItemId, userId }`.
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '204':
+          description: Comentario eliminado
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /comentarios/{commentId}/respuestas:
+    get:
+      tags: [Comentarios]
+      summary: Listar respuestas a un comentario
+      operationId: listarRespuestas
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Endpoint público.
+        Listado **paginado** según RNF-3. Cubre RF-A3 (threads).
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de respuestas al comentario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeComentarios'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    post:
+      tags: [Comentarios]
+      summary: Responder a un comentario existente
+      operationId: responderComentario
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier viewer autenticado.
+
+        Crea un comentario hijo anidado bajo `commentId`. Solo se admite
+        un nivel de anidación (respuesta a una respuesta vuelve al nivel
+        del padre original). Cubre RF-A3.
+
+        **Emite:** `ComentarioPublicado` — payload:
+        `{ commentId, catalogItemId, userId }`.
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComentarioCreacion'
+      responses:
+        '201':
+          description: Respuesta publicada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comentario'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /comentarios/{commentId}/fijar:
+    post:
+      tags: [Comentarios]
+      summary: Fijar un comentario como destacado en el contenido
+      operationId: fijarComentario
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador del canal al
+        que pertenece el contenido. Solo puede haber un comentario fijado
+        por contenido; fijar uno nuevo desfija el anterior. Cubre RF-A3.
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          description: Comentario fijado como destacado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comentario'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /comentarios/{commentId}/reportar:
+    post:
+      tags: [Comentarios]
+      summary: Reportar un comentario inapropiado
+      operationId: reportarComentario
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier viewer autenticado.
+
+        Registra una denuncia sobre el comentario. La resolución es
+        responsabilidad de moderación (transversal según el enunciado);
+        este contexto solo registra el reporte. Cubre RF-A3.
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReporteCreacion'
+      responses:
+        '201':
+          description: Reporte registrado
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # NOTIFICACIONES (RF-A4)
+  # ===================================================================
+  /notificaciones:
+    get:
+      tags: [Notificaciones]
+      summary: Listar las notificaciones del usuario autenticado
+      operationId: listarNotificaciones
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el usuario autenticado;
+        cada uno ve solo sus propias notificaciones.
+        Listado **paginado** según RNF-3. Soporta filtro por estado
+        (leídas / no leídas). Cubre RF-A4.
+      parameters:
+        - name: soloNoLeidas
+          in: query
+          required: false
+          description: Si es true, devuelve solo las no leídas
+          schema:
+            type: boolean
+            default: false
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de notificaciones del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeNotificaciones'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /notificaciones/leer:
+    post:
+      tags: [Notificaciones]
+      summary: Marcar notificaciones como leídas
+      operationId: marcarNotificacionesLeidas
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el usuario autenticado dueño
+        de las notificaciones. Acepta una lista de IDs o la bandera
+        `todas: true` para marcarlas todas. Cubre RF-A4.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarcarLeidasPeticion'
+      responses:
+        '200':
+          description: Notificaciones marcadas como leídas; devuelve cantidad afectada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarcarLeidasResultado'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /notificaciones/preferencias:
+    get:
+      tags: [Notificaciones]
+      summary: Consultar preferencias de notificación del usuario
+      operationId: obtenerPreferenciasNotificacion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el usuario autenticado.
+        Cubre RF-A4.
+      responses:
+        '200':
+          description: Preferencias actuales
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferenciasNotificacion'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+    put:
+      tags: [Notificaciones]
+      summary: Actualizar preferencias de notificación del usuario
+      operationId: actualizarPreferenciasNotificacion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el usuario autenticado.
+        Reemplaza el recurso completo de preferencias. Cubre RF-A4.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferenciasNotificacion'
+      responses:
+        '200':
+          description: Preferencias actualizadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferenciasNotificacion'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  # ===================================================================
+  # HISTORIAL Y LISTAS PERSONALES (RF-A5)
+  # ===================================================================
+  /historial:
+    get:
+      tags: [Historial]
+      summary: Consultar el historial de visualización del usuario
+      operationId: obtenerHistorial
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el usuario autenticado; es
+        información personal. Ordenado por fecha descendente.
+        Listado **paginado** según RNF-3. Cubre RF-A5.
+      parameters:
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página del historial del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeHistorial'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+    delete:
+      tags: [Historial]
+      summary: Borrar el historial de visualización completo
+      operationId: borrarHistorial
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el usuario autenticado dueño
+        del historial. Es una acción irreversible. Cubre RF-A5 (borrar
+        historial por privacidad).
+      responses:
+        '204':
+          description: Historial eliminado
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /ver-despues:
+    get:
+      tags: [Historial]
+      summary: Listar contenidos guardados para ver después
+      operationId: listarVerDespues
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el usuario autenticado.
+        Listado **paginado** según RNF-3. Cubre RF-A5.
+      parameters:
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de ítems guardados para ver después
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeVerDespues'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /ver-despues/{catalogItemId}:
+    put:
+      tags: [Historial]
+      summary: Guardar un contenido para ver después
+      operationId: guardarVerDespues
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier viewer autenticado.
+        Es idempotente: si ya está guardado devuelve 200. Cubre RF-A5.
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      responses:
+        '200':
+          description: Ya estaba guardado; sin cambios
+        '201':
+          description: Contenido guardado para ver después
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    delete:
+      tags: [Historial]
+      summary: Quitar un contenido de la lista para ver después
+      operationId: quitarVerDespues
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el usuario autenticado dueño
+        de la lista. Cubre RF-A5.
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      responses:
+        '204':
+          description: Ítem quitado de la lista
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # COMUNIDAD DEL CANAL (RF-A6)
+  # ===================================================================
+  /canales/{channelId}/posts:
+    get:
+      tags: [Comunidad]
+      summary: Listar los posts de comunidad de un canal
+      operationId: listarPostsComunidad
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Endpoint público.
+        Ordenado por fecha descendente. Listado **paginado** según RNF-3.
+        Cubre RF-A6.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de posts del canal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDePosts'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    post:
+      tags: [Comunidad]
+      summary: Publicar un post de comunidad
+      operationId: publicarPostComunidad
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño del canal.
+
+        Crea un post de comunidad (texto, imagen o encuesta). Es
+        independiente de cualquier video. Cubre RF-A6.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCreacion'
+      responses:
+        '201':
+          description: Post publicado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /posts/{postId}:
+    get:
+      tags: [Comunidad]
+      summary: Consultar un post de comunidad
+      operationId: obtenerPost
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Endpoint público.
+        Cubre RF-A6.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '200':
+          description: Detalle del post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    delete:
+      tags: [Comunidad]
+      summary: Eliminar un post de comunidad
+      operationId: eliminarPost
+      description: |
+        **Quién puede ejecutarla (RNF-1):** solo el creador dueño del canal.
+        Cubre RF-A6.
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '204':
+          description: Post eliminado
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /posts/{postId}/comentarios:
+    get:
+      tags: [Comunidad]
+      summary: Listar comentarios de un post de comunidad
+      operationId: listarComentariosPost
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Endpoint público.
+        Listado **paginado** según RNF-3. Cubre RF-A6.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de comentarios del post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeComentarios'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    post:
+      tags: [Comunidad]
+      summary: Comentar en un post de comunidad
+      operationId: comentarEnPost
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier viewer autenticado.
+        Cubre RF-A6 (interactuar con posts de comunidad).
+
+        **Emite:** `ComentarioPublicado` — payload:
+        `{ commentId, catalogItemId: null, postId, userId }`.
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComentarioCreacion'
+      responses:
+        '201':
+          description: Comentario publicado en el post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comentario'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /posts/{postId}/reaccion:
+    put:
+      tags: [Comunidad]
+      summary: Reaccionar a un post de comunidad
+      operationId: reaccionarAPost
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier viewer autenticado.
+        Mismo mecanismo idempotente que las reacciones a contenidos de video.
+        Cubre RF-A6 (interactuar con posts).
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReaccionCreacion'
+      responses:
+        '200':
+          description: Reacción ya existía con ese tipo; sin cambios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reaccion'
+        '201':
+          description: Reacción creada o tipo cambiado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reaccion'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+# =====================================================================
+# COMPONENTES
+# =====================================================================
+components:
+
+  # -------------------------------------------------------------------
+  # RNF-1: cómo se identifica al actor.
+  # -------------------------------------------------------------------
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token emitido por la plataforma de identidad compartida (el login
+        con Google queda FUERA de los bounded contexts según el enunciado).
+        El token identifica al actor: viewer, creador o sistema.
+
+  # -------------------------------------------------------------------
+  # RNF-3 (parte 1): parámetros reutilizables.
+  # -------------------------------------------------------------------
+  parameters:
+    ChannelId:
+      name: channelId
+      in: path
+      required: true
+      description: Identificador del canal (channelId compartido, RNF-2)
+      schema:
+        type: string
+
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: Identificador del usuario (userId compartido, RNF-2)
+      schema:
+        type: string
+
+    CatalogItemId:
+      name: catalogItemId
+      in: path
+      required: true
+      description: Identificador del ítem de catálogo (catalogItemId compartido, RNF-2)
+      schema:
+        type: string
+
+    CommentId:
+      name: commentId
+      in: path
+      required: true
+      description: Identificador del comentario
+      schema:
+        type: string
+
+    PostId:
+      name: postId
+      in: path
+      required: true
+      description: Identificador del post de comunidad
+      schema:
+        type: string
+
+    Pagina:
+      name: pagina
+      in: query
+      required: false
+      description: Número de página, desde 1 (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    TamanoPagina:
+      name: tamanoPagina
+      in: query
+      required: false
+      description: Cantidad de ítems por página (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  # -------------------------------------------------------------------
+  # RNF-3 (parte 2): respuestas de error reutilizables.
+  # -------------------------------------------------------------------
+  responses:
+    PeticionInvalida:
+      description: Los datos enviados no son válidos (400)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NoAutenticado:
+      description: Falta el token o es inválido (401)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    SinPermiso:
+      description: El actor autenticado no puede ejecutar esta operación (403)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NoEncontrado:
+      description: El recurso no existe (404)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflicto:
+      description: El estado actual del recurso impide la operación (409)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+
+    # -----------------------------------------------------------------
+    # RNF-3: formato de error único de esta API.
+    # -----------------------------------------------------------------
+    Error:
+      type: object
+      description: Formato de error consistente del contexto Audiencia (RNF-3)
+      required:
+        - codigo
+        - mensaje
+      properties:
+        codigo:
+          type: string
+          description: Código estable legible por máquina
+          example: CANAL_NO_ENCONTRADO
+        mensaje:
+          type: string
+          description: Explicación legible por humanos
+          example: No existe un canal con ese identificador
+        detalles:
+          type: array
+          description: Información adicional opcional (ej. errores por campo)
+          items:
+            type: string
+
+    # -----------------------------------------------------------------
+    # Suscripciones
+    # RNF-2: "canal" aquí es solo un perfil social con channelId.
+    # No duplica la metadata editorial de Catálogo.
+    # -----------------------------------------------------------------
+    Suscripcion:
+      type: object
+      description: |
+        Relación de seguimiento entre un usuario y un canal (RF-A1).
+        "Suscripción" aquí es social, no de pago (eso es Monetización).
+      required:
+        - userId
+        - channelId
+        - fechaSuscripcion
+      properties:
+        userId:
+          type: string
+          description: ID compartido del usuario suscripto (RNF-2)
+        channelId:
+          type: string
+          description: ID compartido del canal seguido (RNF-2)
+        fechaSuscripcion:
+          type: string
+          format: date-time
+        notificacionesActivas:
+          type: boolean
+          description: Si el usuario recibirá notificaciones de nuevos videos
+
+    PaginaDeSuscripciones:
+      type: object
+      description: Envoltorio de paginación de suscripciones (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Suscripcion'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    ConteoSuscriptores:
+      type: object
+      description: |
+        Conteo público de suscriptores de un canal (RF-A1).
+        Expone solo el total, no quiénes son (privacidad).
+        Consulta síncrona disponible para otros contextos (RNF-4),
+        por ejemplo Monetización para evaluar elegibilidad (RF-M1).
+      required:
+        - channelId
+        - total
+      properties:
+        channelId:
+          type: string
+        total:
+          type: integer
+          description: Total de suscriptores actuales
+
+    # -----------------------------------------------------------------
+    # Reacciones
+    # -----------------------------------------------------------------
+    Reaccion:
+      type: object
+      description: Reacción de un usuario a un contenido o post (RF-A2)
+      required:
+        - userId
+        - tipo
+        - fechaRegistro
+      properties:
+        userId:
+          type: string
+          description: ID compartido del usuario (RNF-2)
+        catalogItemId:
+          type: string
+          description: ID del contenido al que se reacciona (presente si es un video)
+        postId:
+          type: string
+          description: ID del post al que se reacciona (presente si es un post)
+        tipo:
+          type: string
+          enum: [like, dislike]
+          description: Tipo de reacción expresada
+        fechaRegistro:
+          type: string
+          format: date-time
+
+    ReaccionCreacion:
+      type: object
+      description: Datos para registrar una reacción (RF-A2)
+      required:
+        - tipo
+      properties:
+        tipo:
+          type: string
+          enum: [like, dislike]
+
+    TotalesReacciones:
+      type: object
+      description: Totales agregados de reacciones por tipo (RF-A2)
+      required:
+        - catalogItemId
+        - likes
+        - dislikes
+      properties:
+        catalogItemId:
+          type: string
+        likes:
+          type: integer
+        dislikes:
+          type: integer
+
+    # -----------------------------------------------------------------
+    # Comentarios
+    # -----------------------------------------------------------------
+    Comentario:
+      type: object
+      description: |
+        Comentario publicado en un contenido o en un post de comunidad
+        (RF-A3). Puede ser raíz o respuesta (padreId presente).
+      required:
+        - commentId
+        - userId
+        - texto
+        - fechaPublicacion
+        - estado
+      properties:
+        commentId:
+          type: string
+        userId:
+          type: string
+          description: Autor del comentario (userId compartido, RNF-2)
+        catalogItemId:
+          type: string
+          description: Contenido al que pertenece (presente si es un video)
+        postId:
+          type: string
+          description: Post al que pertenece (presente si es un post de comunidad)
+        padreId:
+          type: string
+          description: ID del comentario padre si es una respuesta; ausente si es raíz
+        texto:
+          type: string
+        fechaPublicacion:
+          type: string
+          format: date-time
+        editado:
+          type: boolean
+          default: false
+        fijado:
+          type: boolean
+          default: false
+          description: Si el creador lo marcó como destacado
+        estado:
+          type: string
+          enum: [visible, oculto, eliminado]
+          description: |
+            oculto: no se muestra públicamente (ej. contenido despublicado);
+            eliminado: fue borrado por el autor o el creador.
+        totalRespuestas:
+          type: integer
+          default: 0
+
+    ComentarioCreacion:
+      type: object
+      description: Datos para publicar un comentario (RF-A3)
+      required:
+        - texto
+      properties:
+        texto:
+          type: string
+          maxLength: 10000
+
+    ComentarioEdicion:
+      type: object
+      description: Texto actualizado del comentario (RF-A3)
+      required:
+        - texto
+      properties:
+        texto:
+          type: string
+          maxLength: 10000
+
+    PaginaDeComentarios:
+      type: object
+      description: Envoltorio de paginación de comentarios (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comentario'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    ReporteCreacion:
+      type: object
+      description: Datos para reportar un comentario inapropiado (RF-A3)
+      required:
+        - motivo
+      properties:
+        motivo:
+          type: string
+          enum: [spam, odio, acoso, desinformacion, otro]
+        detalle:
+          type: string
+          maxLength: 500
+          description: Contexto adicional opcional
+
+    # -----------------------------------------------------------------
+    # Notificaciones
+    # -----------------------------------------------------------------
+    Notificacion:
+      type: object
+      description: Notificación de actividad relevante para el usuario (RF-A4)
+      required:
+        - notificacionId
+        - tipo
+        - leida
+        - fechaCreacion
+      properties:
+        notificacionId:
+          type: string
+        tipo:
+          type: string
+          enum: [nuevo_video, respuesta_comentario, reaccion_comentario, nuevo_post]
+          description: Tipo de evento que originó la notificación
+        leida:
+          type: boolean
+        referenciaId:
+          type: string
+          description: ID del recurso al que apunta la notificación (catalogItemId, commentId, etc.)
+        resumen:
+          type: string
+          description: Texto corto descriptivo para mostrar en la UI
+        fechaCreacion:
+          type: string
+          format: date-time
+
+    PaginaDeNotificaciones:
+      type: object
+      description: Envoltorio de paginación de notificaciones (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notificacion'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    MarcarLeidasPeticion:
+      type: object
+      description: Petición para marcar notificaciones como leídas (RF-A4)
+      properties:
+        notificacionIds:
+          type: array
+          description: Lista de IDs a marcar; ignorado si `todas` es true
+          items:
+            type: string
+        todas:
+          type: boolean
+          default: false
+          description: Si es true, marca todas las notificaciones del usuario
+
+    MarcarLeidasResultado:
+      type: object
+      required:
+        - cantidadAfectada
+      properties:
+        cantidadAfectada:
+          type: integer
+          description: Número de notificaciones marcadas como leídas
+
+    PreferenciasNotificacion:
+      type: object
+      description: Configuración de preferencias de notificación del usuario (RF-A4)
+      properties:
+        nuevoVideoDeCanal:
+          type: boolean
+          default: true
+          description: Notificar cuando un canal suscripto publica un video
+        respuestaAComentario:
+          type: boolean
+          default: true
+          description: Notificar cuando alguien responde a un comentario propio
+        reaccionAComentario:
+          type: boolean
+          default: false
+          description: Notificar cuando alguien reacciona a un comentario propio
+        nuevoPostComunidad:
+          type: boolean
+          default: true
+          description: Notificar cuando un canal suscripto publica un post
+
+    # -----------------------------------------------------------------
+    # Historial y listas personales
+    # RNF-2: solo se guarda el catalogItemId, no la metadata editorial.
+    # -----------------------------------------------------------------
+    EntradaHistorial:
+      type: object
+      description: |
+        Entrada del historial de visualización del usuario (RF-A5).
+        Solo referencia al catalogItemId; la metadata del video vive en
+        Catálogo (RNF-2). El watch time detallado vive en Descubrimiento.
+      required:
+        - catalogItemId
+        - fechaVisto
+      properties:
+        catalogItemId:
+          type: string
+          description: ID compartido del contenido visto (RNF-2)
+        fechaVisto:
+          type: string
+          format: date-time
+        porcentajeVisto:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Porcentaje del video visto en la última sesión (aproximado)
+
+    PaginaDeHistorial:
+      type: object
+      description: Envoltorio de paginación del historial (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntradaHistorial'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    ItemVerDespues:
+      type: object
+      description: Ítem en la lista "ver después" del usuario (RF-A5)
+      required:
+        - catalogItemId
+        - fechaGuardado
+      properties:
+        catalogItemId:
+          type: string
+          description: ID compartido del contenido guardado (RNF-2)
+        fechaGuardado:
+          type: string
+          format: date-time
+
+    PaginaDeVerDespues:
+      type: object
+      description: Envoltorio de paginación de ver-después (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemVerDespues'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    # -----------------------------------------------------------------
+    # Posts de comunidad
+    # -----------------------------------------------------------------
+    Post:
+      type: object
+      description: Post de comunidad publicado por el creador (RF-A6)
+      required:
+        - postId
+        - channelId
+        - tipo
+        - fechaPublicacion
+      properties:
+        postId:
+          type: string
+        channelId:
+          type: string
+          description: Canal al que pertenece el post (channelId compartido, RNF-2)
+        tipo:
+          type: string
+          enum: [texto, imagen, encuesta]
+        texto:
+          type: string
+          description: Contenido textual del post (obligatorio si tipo es texto o imagen)
+        imagenUrl:
+          type: string
+          description: URL de la imagen adjunta (presente si tipo es imagen)
+        encuesta:
+          $ref: '#/components/schemas/Encuesta'
+        fechaPublicacion:
+          type: string
+          format: date-time
+        totalComentarios:
+          type: integer
+          default: 0
+
+    PostCreacion:
+      type: object
+      description: Datos para publicar un post de comunidad (RF-A6)
+      required:
+        - tipo
+      properties:
+        tipo:
+          type: string
+          enum: [texto, imagen, encuesta]
+        texto:
+          type: string
+          maxLength: 5000
+        imagenUrl:
+          type: string
+          description: URL de la imagen ya subida (la subida del archivo es externa)
+        encuesta:
+          $ref: '#/components/schemas/EncuestaCreacion'
+
+    Encuesta:
+      type: object
+      description: Encuesta dentro de un post de comunidad (RF-A6)
+      required:
+        - pregunta
+        - opciones
+      properties:
+        pregunta:
+          type: string
+        opciones:
+          type: array
+          minItems: 2
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/OpcionEncuesta'
+        totalVotos:
+          type: integer
+          default: 0
+
+    EncuestaCreacion:
+      type: object
+      required:
+        - pregunta
+        - opciones
+      properties:
+        pregunta:
+          type: string
+        opciones:
+          type: array
+          minItems: 2
+          maxItems: 5
+          items:
+            type: string
+
+    OpcionEncuesta:
+      type: object
+      required:
+        - opcionId
+        - texto
+        - votos
+      properties:
+        opcionId:
+          type: string
+        texto:
+          type: string
+        votos:
+          type: integer
+          default: 0
+        porcentaje:
+          type: number
+          format: float
+
+    PaginaDePosts:
+      type: object
+      description: Envoltorio de paginación de posts de comunidad (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Post'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer

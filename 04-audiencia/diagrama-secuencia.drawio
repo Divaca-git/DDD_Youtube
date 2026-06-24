@@ -1,0 +1,147 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="audiencia-secuencia" name="Audiencia - Diagrama de Secuencia">
+    <mxGraphModel dx="1100" dy="750" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <mxCell id="titulo" value="Contexto 4 — Audiencia: flujo de interacción con un video&#xa;(espectador deja like y comentario; señal de engagement hacia Descubrimiento)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="10" width="1100" height="46" as="geometry" />
+    </mxCell>
+
+    <mxCell id="esp_head" value="Espectador" style="shape=mxgraph.uml.actor;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="60" y="80" width="40" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="esp_line" value="" style="endArrow=none;dashed=1;strokeColor=#888;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="80" y="140" as="sourcePoint" /><mxPoint x="80" y="900" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="cat_head" value="Catálogo&#xa;(contexto 2)" style="swimlane;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="220" y="80" width="130" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="cat_line" value="" style="endArrow=none;dashed=1;strokeColor=#6c8ebf;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="285" y="126" as="sourcePoint" /><mxPoint x="285" y="900" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="aud_head" value="Audiencia&#xa;(contexto 4)" style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="430" y="80" width="140" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="aud_line" value="" style="endArrow=none;dashed=1;strokeColor=#82b366;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="500" y="126" as="sourcePoint" /><mxPoint x="500" y="900" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="bus_head" value="Bus de eventos" style="swimlane;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="650" y="80" width="130" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="bus_line" value="" style="endArrow=none;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="715" y="126" as="sourcePoint" /><mxPoint x="715" y="900" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="des_head" value="Descubrimiento&#xa;(contexto 3)" style="swimlane;startSize=30;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="860" y="80" width="140" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="des_line" value="" style="endArrow=none;dashed=1;strokeColor=#d79b00;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="930" y="126" as="sourcePoint" /><mxPoint x="930" y="900" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="fase0_label" value="FASE 0 — Catálogo publica contenido nuevo (RF-A4 disparador)" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="160" width="520" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="e0_1" value="ContenidoPublicado (async)" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#6c8ebf;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="285" y="196" as="sourcePoint" /><mxPoint x="715" y="196" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e0_2" value="ContenidoPublicado" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="715" y="216" as="sourcePoint" /><mxPoint x="500" y="216" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e0_3" value="crea Notificacion para cada suscriptor" style="text;fontSize=9;fillColor=#d5e8d4;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="420" y="228" width="200" height="18" as="geometry" />
+    </mxCell>
+
+    <mxCell id="fase1_label" value="FASE 1 — Validar visibilidad antes de servir interacciones (RNF-4 consulta síncrona)" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="265" width="580" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="e1_1" value="GET /contenidos/{catalogItemId}/comentarios" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="80" y="302" as="sourcePoint" /><mxPoint x="500" y="302" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e1_2" value="GET /contenidos/{id}/visibilidad?pais=&amp;edad=" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#6c8ebf;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="500" y="322" as="sourcePoint" /><mxPoint x="285" y="322" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e1_3" value="200 { visible: true }" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#6c8ebf;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="285" y="342" as="sourcePoint" /><mxPoint x="500" y="342" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e1_4" value="200 PaginaDeComentarios" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="500" y="362" as="sourcePoint" /><mxPoint x="80" y="362" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="fase2_label" value="FASE 2 — Espectador registra like (RF-A2)" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="395" width="400" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="e2_1" value="PUT /contenidos/{catalogItemId}/reaccion { tipo: like }" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="80" y="432" as="sourcePoint" /><mxPoint x="500" y="432" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e2_note" value="persiste Reaccion; actualiza TotalesReacciones" style="text;fontSize=9;fillColor=#d5e8d4;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="430" y="444" width="220" height="16" as="geometry" />
+    </mxCell>
+    <mxCell id="e2_2" value="ReaccionRegistrada" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="500" y="472" as="sourcePoint" /><mxPoint x="715" y="472" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e2_3" value="SenalEngagement (tipo=like, catalogItemId)" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="500" y="492" as="sourcePoint" /><mxPoint x="715" y="492" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e2_4" value="SenalEngagement" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d79b00;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="715" y="510" as="sourcePoint" /><mxPoint x="930" y="510" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e2_5" value="actualiza perfil de intereses del usuario" style="text;fontSize=9;fillColor=#ffe6cc;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="860" y="522" width="200" height="16" as="geometry" />
+    </mxCell>
+    <mxCell id="e2_6" value="201 Reaccion" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="500" y="550" as="sourcePoint" /><mxPoint x="80" y="550" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="fase3_label" value="FASE 3 — Espectador publica comentario (RF-A3)" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="580" width="420" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="e3_1" value="POST /contenidos/{catalogItemId}/comentarios { texto: '...' }" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="80" y="616" as="sourcePoint" /><mxPoint x="500" y="616" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e3_note" value="persiste Comentario (estado=visible)" style="text;fontSize=9;fillColor=#d5e8d4;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="430" y="628" width="200" height="16" as="geometry" />
+    </mxCell>
+    <mxCell id="e3_2" value="ComentarioPublicado" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="500" y="656" as="sourcePoint" /><mxPoint x="715" y="656" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e3_3" value="201 Comentario" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="500" y="676" as="sourcePoint" /><mxPoint x="80" y="676" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="fase4_label" value="FASE 4 — Consistencia eventual (RNF-5): Catálogo despublica el video" style="text;fontStyle=2;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="710" width="560" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="e4_1" value="ContenidoDespublicado (async)" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#6c8ebf;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="285" y="748" as="sourcePoint" /><mxPoint x="715" y="748" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e4_2" value="ContenidoDespublicado" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="715" y="768" as="sourcePoint" /><mxPoint x="500" y="768" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e4_note1" value="marca comentarios como oculto (no borra)" style="text;fontSize=9;fillColor=#f8cecc;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="430" y="780" width="220" height="16" as="geometry" />
+    </mxCell>
+    <mxCell id="e4_3" value="GET /contenidos/{catalogItemId}/comentarios (durante ventana)" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="80" y="816" as="sourcePoint" /><mxPoint x="500" y="816" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e4_4" value="200 + X-Contenido-Visibilidad: pendiente-verificacion" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="500" y="846" as="sourcePoint" /><mxPoint x="80" y="846" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="e4_note2" value="Caso límite RNF-5: durante la ventana entre el evento&#xa;ContenidoDespublicado y su procesamiento, los comentarios&#xa;se devuelven con el header de advertencia, no como error." style="text;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;rounded=1;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="60" y="860" width="440" height="48" as="geometry" />
+    </mxCell>
+
+  </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

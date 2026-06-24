@@ -1,0 +1,201 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="audiencia-clases" name="Audiencia - Diagrama de Clases">
+    <mxGraphModel dx="1100" dy="750" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <mxCell id="titulo" value="Contexto 4 — Audiencia, comunidad y engagement&#xa;Diagrama de clases (borrador conceptual)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="20" width="980" height="50" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Suscripcion" value="Suscripcion" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="40" y="100" width="240" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="Suscripcion_a" value="userId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Suscripcion">
+      <mxGeometry y="30" width="240" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Suscripcion_b" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Suscripcion">
+      <mxGeometry y="50" width="240" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Suscripcion_c" value="fechaSuscripcion: date-time" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Suscripcion">
+      <mxGeometry y="70" width="240" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Suscripcion_d" value="notificacionesActivas: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Suscripcion">
+      <mxGeometry y="90" width="240" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Suscripcion_note" value="«relación social»&#xa;Suscripción ≠ pago (eso es Monetización)" style="text;strokeColor=none;fillColor=#ffffc0;align=left;spacingLeft=4;fontSize=9;" vertex="1" parent="Suscripcion">
+      <mxGeometry y="110" width="240" height="18" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Reaccion" value="Reaccion" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="320" y="100" width="240" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="Reaccion_a" value="userId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Reaccion">
+      <mxGeometry y="30" width="240" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Reaccion_b" value="catalogItemId: string [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Reaccion">
+      <mxGeometry y="50" width="240" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Reaccion_c" value="postId: string [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Reaccion">
+      <mxGeometry y="70" width="240" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Reaccion_d" value="tipo: like | dislike" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Reaccion">
+      <mxGeometry y="90" width="240" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Reaccion_e" value="fechaRegistro: date-time" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Reaccion">
+      <mxGeometry y="110" width="240" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Comentario" value="Comentario" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="600" y="100" width="260" height="210" as="geometry" />
+    </mxCell>
+    <mxCell id="Com_a" value="commentId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Comentario">
+      <mxGeometry y="30" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Com_b" value="userId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Comentario">
+      <mxGeometry y="50" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Com_c" value="catalogItemId: string [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Comentario">
+      <mxGeometry y="70" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Com_d" value="postId: string [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Comentario">
+      <mxGeometry y="90" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Com_e" value="padreId: string [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Comentario">
+      <mxGeometry y="110" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Com_f" value="texto: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Comentario">
+      <mxGeometry y="130" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Com_g" value="estado: visible | oculto | eliminado" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Comentario">
+      <mxGeometry y="150" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Com_h" value="fijado: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Comentario">
+      <mxGeometry y="170" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Com_i" value="fechaPublicacion: date-time" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Comentario">
+      <mxGeometry y="190" width="260" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="ComSelf" value="respuesta a" style="edgeStyle=orthogonalEdgeStyle;curved=1;" edge="1" source="Comentario" target="Comentario" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="920" y="195" />
+          <mxPoint x="920" y="280" />
+          <mxPoint x="860" y="280" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="Notificacion" value="Notificacion" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="40" y="320" width="260" height="150" as="geometry" />
+    </mxCell>
+    <mxCell id="Not_a" value="notificacionId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Notificacion">
+      <mxGeometry y="30" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Not_b" value="userId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Notificacion">
+      <mxGeometry y="50" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Not_c" value="tipo: nuevo_video | respuesta_comentario&#xa;     | reaccion_comentario | nuevo_post" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Notificacion">
+      <mxGeometry y="70" width="260" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="Not_d" value="referenciaId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Notificacion">
+      <mxGeometry y="100" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Not_e" value="leida: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Notificacion">
+      <mxGeometry y="120" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Not_f" value="fechaCreacion: date-time" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Notificacion">
+      <mxGeometry y="140" width="260" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Historial" value="EntradaHistorial" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="340" y="320" width="260" height="110" as="geometry" />
+    </mxCell>
+    <mxCell id="His_a" value="userId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Historial">
+      <mxGeometry y="30" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="His_b" value="catalogItemId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Historial">
+      <mxGeometry y="50" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="His_c" value="fechaVisto: date-time" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Historial">
+      <mxGeometry y="70" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="His_d" value="porcentajeVisto: float" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Historial">
+      <mxGeometry y="90" width="260" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Post" value="Post" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="640" y="380" width="260" height="170" as="geometry" />
+    </mxCell>
+    <mxCell id="Post_a" value="postId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Post">
+      <mxGeometry y="30" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Post_b" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Post">
+      <mxGeometry y="50" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Post_c" value="tipo: texto | imagen | encuesta" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Post">
+      <mxGeometry y="70" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Post_d" value="texto: string [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Post">
+      <mxGeometry y="90" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Post_e" value="imagenUrl: string [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Post">
+      <mxGeometry y="110" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Post_f" value="fechaPublicacion: date-time" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Post">
+      <mxGeometry y="130" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Post_g" value="totalComentarios: int" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Post">
+      <mxGeometry y="150" width="260" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Encuesta" value="Encuesta" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="640" y="600" width="260" height="90" as="geometry" />
+    </mxCell>
+    <mxCell id="Enc_a" value="pregunta: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Encuesta">
+      <mxGeometry y="30" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Enc_b" value="opciones: OpcionEncuesta[2..5]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Encuesta">
+      <mxGeometry y="50" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Enc_c" value="totalVotos: int" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Encuesta">
+      <mxGeometry y="70" width="260" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="PostEncuesta" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=diamond;endFill=1;" edge="1" source="Post" target="Encuesta" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Preferencias" value="PreferenciasNotificacion" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="40" y="530" width="260" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="Pref_a" value="userId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Preferencias">
+      <mxGeometry y="30" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Pref_b" value="nuevoVideoDeCanal: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Preferencias">
+      <mxGeometry y="50" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Pref_c" value="respuestaAComentario: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Preferencias">
+      <mxGeometry y="70" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Pref_d" value="reaccionAComentario: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Preferencias">
+      <mxGeometry y="90" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Pref_e" value="nuevoPostComunidad: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Preferencias">
+      <mxGeometry y="110" width="260" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="nota_rnf2" value="RNF-2: este contexto comparte IDs (userId, channelId,&#xa;catalogItemId) pero NO los modelos de Catálogo.&#xa;'Canal' aquí no tiene título ni descripción editorial." style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;spacingLeft=6;rounded=1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="340" y="530" width="280" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="nota_eventos" value="Eventos emitidos (docs/registro-eventos.md):&#xa;• UsuarioSuscrito / UsuarioDesuscrito&#xa;• ReaccionRegistrada&#xa;• ComentarioPublicado / ComentarioEliminado&#xa;• SenalEngagement → consumido por Descubrimiento" style="text;strokeColor=#82b366;fillColor=#d5e8d4;align=left;spacingLeft=6;rounded=1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="340" y="610" width="280" height="80" as="geometry" />
+    </mxCell>
+
+  </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

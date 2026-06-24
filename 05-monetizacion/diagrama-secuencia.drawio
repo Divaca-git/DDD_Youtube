@@ -1,0 +1,206 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="monetizacion-secuencia" name="Monetizacion - Diagrama de Secuencia">
+    <mxGraphModel dx="1100" dy="750" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <mxCell id="titulo" value="Contexto 5 — Monetización: flujo de ingreso publicitario y retiro&#xa;(Publicidad genera ingreso → Monetización lo atribuye → Creador solicita retiro)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="10" width="1200" height="46" as="geometry" />
+    </mxCell>
+
+    <mxCell id="cre_head" value="Creador" style="shape=mxgraph.uml.actor;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="60" y="80" width="40" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="cre_line" value="" style="endArrow=none;dashed=1;strokeColor=#888;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="80" y="140" as="sourcePoint" /><mxPoint x="80" y="1060" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="aud_head" value="Audiencia&#xa;(contexto 4)" style="swimlane;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+      <mxGeometry x="190" y="80" width="120" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="aud_line" value="" style="endArrow=none;dashed=1;strokeColor=#9673a6;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="250" y="126" as="sourcePoint" /><mxPoint x="250" y="1060" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="pub_head" value="Publicación&#xa;(contexto 1)" style="swimlane;startSize=30;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="370" y="80" width="120" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="pub_line" value="" style="endArrow=none;dashed=1;strokeColor=#b85450;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="430" y="126" as="sourcePoint" /><mxPoint x="430" y="1060" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="mon_head" value="Monetización&#xa;(contexto 5)" style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="560" y="80" width="140" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="mon_line" value="" style="endArrow=none;dashed=1;strokeColor=#82b366;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="630" y="126" as="sourcePoint" /><mxPoint x="630" y="1060" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="bus_head" value="Bus de eventos" style="swimlane;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="780" y="80" width="130" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="bus_line" value="" style="endArrow=none;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="845" y="126" as="sourcePoint" /><mxPoint x="845" y="1060" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="publi_head" value="Publicidad&#xa;(contexto 6)" style="swimlane;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="990" y="80" width="130" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="publi_line" value="" style="endArrow=none;dashed=1;strokeColor=#6c8ebf;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="1055" y="126" as="sourcePoint" /><mxPoint x="1055" y="1060" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="fase0_label" value="FASE 0 — Creador solicita evaluación de elegibilidad (RF-M1, Decisión 1)" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="162" width="560" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f0_1" value="POST /canales/{channelId}/elegibilidad/evaluar" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="80" y="200" as="sourcePoint" /><mxPoint x="630" y="200" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="f0_2" value="GET /canales/{channelId}/suscriptores/conteo (sync, RNF-4)" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#9673a6;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="630" y="222" as="sourcePoint" /><mxPoint x="250" y="222" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f0_3" value="200 { total: 847 }" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#9673a6;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="250" y="242" as="sourcePoint" /><mxPoint x="630" y="242" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="f0_4" value="GET /canales/{channelId}/watch-time/anual (sync, RNF-4)" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="630" y="262" as="sourcePoint" /><mxPoint x="430" y="262" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f0_5" value="200 { horasVista: 3812 }" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="430" y="282" as="sourcePoint" /><mxPoint x="630" y="282" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="f0_note" value="elegible=false (suscriptores insuficientes: 847/1000)" style="text;fontSize=9;fillColor=#f8cecc;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="550" y="294" width="260" height="16" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f0_6" value="200 ElegibilidadMonetizacion { elegible: false }" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="630" y="322" as="sourcePoint" /><mxPoint x="80" y="322" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="fase1_label" value="FASE 1 — Catálogo publica contenido nuevo (RF-M2 disparador asíncrono)" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="354" width="560" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f1_1" value="ContenidoPublicado { catalogItemId, channelId, monetizable: true }" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#6c8ebf;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="560" y="392" as="sourcePoint" /><mxPoint x="845" y="392" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f1_2" value="ContenidoPublicado" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="845" y="412" as="sourcePoint" /><mxPoint x="630" y="412" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f1_note" value="registra EstadoMonetizacionContenido { habilitada: true }" style="text;fontSize=9;fillColor=#d5e8d4;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="550" y="424" width="260" height="16" as="geometry" />
+    </mxCell>
+
+    <mxCell id="fase2_label" value="FASE 2 — Creador habilita monetización del canal (RF-M1, RF-M2)" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="458" width="560" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f2_1" value="PUT /canales/{channelId}/monetizacion { habilitada: true }" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="80" y="496" as="sourcePoint" /><mxPoint x="630" y="496" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f2_note" value="409: elegibilidad no aprobada (suscriptores insuficientes)" style="text;fontSize=9;fillColor=#f8cecc;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="550" y="508" width="260" height="16" as="geometry" />
+    </mxCell>
+    <mxCell id="f2_2" value="409 ELEGIBILIDAD_INSUFICIENTE" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="630" y="536" as="sourcePoint" /><mxPoint x="80" y="536" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="f2_note2" value="(más adelante, tras superar 1 000 suscriptores...)" style="text;fontSize=9;fillColor=#f5f5f5;rounded=1;fontStyle=2;" vertex="1" parent="1">
+      <mxGeometry x="60" y="548" width="320" height="16" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f2_3" value="PUT /canales/{channelId}/monetizacion { habilitada: true }" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="80" y="576" as="sourcePoint" /><mxPoint x="630" y="576" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f2_4" value="MonetizacionHabilitada { channelId, alcance: canal }" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="630" y="596" as="sourcePoint" /><mxPoint x="845" y="596" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f2_5" value="MonetizacionHabilitada" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#6c8ebf;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="845" y="616" as="sourcePoint" /><mxPoint x="1055" y="616" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f2_note3" value="Publicidad recibe señal: puede servir anuncios (Decisión 2)" style="text;fontSize=9;fillColor=#dae8fc;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="980" y="628" width="200" height="16" as="geometry" />
+    </mxCell>
+    <mxCell id="f2_6" value="200 EstadoMonetizacionCanal { habilitada: true }" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="630" y="656" as="sourcePoint" /><mxPoint x="80" y="656" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="fase3_label" value="FASE 3 — Publicidad confirma impresión; Monetización atribuye ingreso al creador (RF-M3)" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="690" width="660" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f3_1" value="IngresoPublicitarioGenerado { revenueEventId, catalogItemId, channelId, montoBruto: 3.50 }" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#6c8ebf;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="1055" y="728" as="sourcePoint" /><mxPoint x="845" y="728" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f3_2" value="IngresoPublicitarioGenerado" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="845" y="748" as="sourcePoint" /><mxPoint x="630" y="748" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f3_note" value="aplica revenue share: neto = 3.50 × 0.55 = 1.93 USD&#xa;crea Ingreso { fuente: publicidad, monto: 1.93, estado: confirmado }" style="text;fontSize=9;fillColor=#d5e8d4;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="440" y="760" width="300" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="f3_3" value="IngresoAtribuido { userId: creadorId, monto: 1.93, fuente: publicidad, periodo }" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="630" y="800" as="sourcePoint" /><mxPoint x="845" y="800" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="fase4_label" value="FASE 4 — Creador consulta ingresos y solicita retiro (RF-M3, RF-M5)" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="832" width="560" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f4_1" value="GET /canales/{channelId}/ingresos/resumen?agrupacion=mensual" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="80" y="870" as="sourcePoint" /><mxPoint x="630" y="870" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f4_2" value="200 ResumenIngresos { totalNeto: 128.75, porFuente: { publicidad: 101.40, membresia: 22.35, propina: 5.00 } }" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="630" y="890" as="sourcePoint" /><mxPoint x="80" y="890" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="f4_3" value="POST /canales/{channelId}/retiros { metodoPagoId, monto: 128.75 }" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="80" y="920" as="sourcePoint" /><mxPoint x="630" y="920" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f4_note" value="crea Retiro { estado: pendiente }; envía solicitud a pasarela" style="text;fontSize=9;fillColor=#d5e8d4;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="550" y="932" width="260" height="16" as="geometry" />
+    </mxCell>
+    <mxCell id="f4_4" value="201 Retiro { payoutId, estado: pendiente }" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="630" y="960" as="sourcePoint" /><mxPoint x="80" y="960" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="f4_note2" value="(asíncrono: pasarela confirma la transferencia)" style="text;fontSize=9;fillColor=#f5f5f5;rounded=1;fontStyle=2;" vertex="1" parent="1">
+      <mxGeometry x="60" y="972" width="300" height="16" as="geometry" />
+    </mxCell>
+    <mxCell id="f4_5" value="PagoProcesado { payoutId, userId: creadorId, monto: 128.75 }" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="630" y="1000" as="sourcePoint" /><mxPoint x="845" y="1000" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f4_note3" value="Retiro → estado: completado" style="text;fontSize=9;fillColor=#d5e8d4;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="550" y="1012" width="200" height="16" as="geometry" />
+    </mxCell>
+
+    <mxCell id="fase5_label" value="FASE 5 — Consistencia eventual (RNF-5): Catálogo despublica video con ingresos en vuelo" style="text;fontStyle=2;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="1036" width="680" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f5_1" value="ContenidoDespublicado { catalogItemId } (async)" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#6c8ebf;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="560" y="1074" as="sourcePoint" /><mxPoint x="845" y="1074" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f5_2" value="ContenidoDespublicado" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="845" y="1094" as="sourcePoint" /><mxPoint x="630" y="1094" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f5_note" value="ingresos ya confirmados: se mantienen (anunciante ya pagó)&#xa;ingresos pendientes de confirmar: se cancelan&#xa;EstadoMonetizacionContenido → habilitada: false" style="text;fontSize=9;fillColor=#f8cecc;rounded=1;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="440" y="1106" width="320" height="42" as="geometry" />
+    </mxCell>
+    <mxCell id="f5_3" value="GET /canales/{channelId}/ingresos/resumen (durante ventana)" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="80" y="1160" as="sourcePoint" /><mxPoint x="630" y="1160" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f5_4" value="200 ResumenIngresos + advertencia: ingresos-parciales (RNF-5)" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="630" y="1186" as="sourcePoint" /><mxPoint x="80" y="1186" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f5_note2" value="Caso límite RNF-5: durante la ventana entre ContenidoDespublicado&#xa;y su procesamiento, los ingresos confirmados se mantienen y&#xa;se señaliza con campo advertencia='ingresos-parciales'." style="text;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;rounded=1;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="60" y="1200" width="440" height="46" as="geometry" />
+    </mxCell>
+
+  </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
