@@ -1,0 +1,1520 @@
+# =====================================================================
+# Contexto 6: Publicidad — OpenAPI
+# Borrador completo. Cubre RF-F1 a RF-F7.
+# Convenciones del equipo: ver docs/plantilla-openapi.yaml
+# Eventos: nombres canónicos según docs/registro-eventos.md
+# =====================================================================
+openapi: 3.0.3
+
+info:
+  title: API de Publicidad
+  version: 1.0.0
+  description: |
+    **Responsabilidad del contexto (entregable 1):**
+    Gestiona el **ecosistema publicitario de la plataforma**: campañas de
+    anunciantes, targeting, brand safety, decisión de anuncio en una
+    oportunidad de visualización (ad decision), registro de impresiones
+    facturables y facturación al anunciante.
+    En este contexto el "video" es un **espacio publicitario** (inventory
+    slot): un slot donde puede mostrarse un anuncio durante una sesión de
+    reproducción. El "canal" es una **fuente de inventory**, no un perfil
+    social ni una entidad económica.
+
+    Este contexto **factura al anunciante** y emite el ingreso bruto hacia
+    Monetización (contexto 5), que lo distribuye al creador. No conoce el
+    revenue share ni el saldo del creador.
+
+    **Decisión 2 (registro-eventos.md):** Publicidad consume el evento
+    `MonetizacionDeshabilitada` emitido por Monetización para suspender
+    el servicio de anuncios en el contenido o canal afectado. Esto es
+    complementario a `RestriccionAplicada` tipo `monetizacion` de Catálogo
+    — ambas señales se procesan y producen la misma reacción: deshabilitar
+    el `InventorySlot`.
+
+    **Decisión 5 (registro-eventos.md):** la categoría del contenido para
+    brand safety se obtiene del payload de `ContenidoPublicado` emitido
+    por Catálogo (campo `categoria`). Publicidad no hace consulta síncrona
+    a Catálogo ni a Audiencia para obtenerla; la categoría se almacena
+    localmente en el `InventorySlot` al crearlo.
+
+    **Eventos que emite:** AnuncioServido, ImpresionFacturableConfirmada,
+    IngresoPublicitarioGenerado, PresupuestoAgotado.
+    Cada operación indica en su descripción qué evento emite.
+
+    **Eventos que consume:**
+    - `ContenidoPublicado` (Catálogo): crea un `InventorySlot` con la
+      categoría y las restricciones del payload (decisión 5).
+    - `ContenidoDespublicado` (Catálogo): suspende el `InventorySlot`;
+      no se sirven más anuncios en ese contenido.
+    - `RestriccionAplicada` (Catálogo): aplica restricción de brand safety
+      al inventory; puede inhabilitar el slot según tipo.
+    - `MonetizacionDeshabilitada` (Monetización): deshabilita el inventory
+      del canal o contenido (decisión 2).
+    - `SenalEngagement` (Audiencia): actualiza señales de afinidad de
+      audiencia para mejorar el targeting (decisión 5 del registro).
+
+    Nombres y payloads según `docs/registro-eventos.md`.
+
+    **Consistencia eventual (RNF-5):** caso límite documentado — campaña
+    cuyo presupuesto se agota mientras hay decisiones de ad (`AdDecision`)
+    en estado `servido` pero cuya impresión aún no fue confirmada. Decisión:
+    al emitir `PresupuestoAgotado`, todas las `AdDecision` en vuelo pasan
+    a estado `expirada` y no generan `ImpresionFacturableConfirmada`. Si
+    llega la confirmación de impresión después del agotamiento, se rechaza
+    con 409 y el campo `motivo: presupuesto_agotado`. El anunciante nunca
+    es facturado por una impresión posterior al agotamiento.
+
+# RNF-1: por defecto TODAS las operaciones requieren un token.
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Anunciantes
+    description: Gestión de cuentas de anunciante (RF-F1)
+  - name: Campañas
+    description: Campañas publicitarias y presupuesto (RF-F1, RF-F2)
+  - name: Creativos
+    description: Materiales creativos vinculados a una campaña (RF-F1)
+  - name: Targeting
+    description: Reglas de segmentación de audiencia y territorio (RF-F3)
+  - name: BrandSafety
+    description: Exclusión de contenido inadecuado para la marca (RF-F4, RF-F5)
+  - name: Inventory
+    description: Slots publicitarios de contenido monetizable (RF-F5)
+  - name: AdDecisions
+    description: Decisión de anuncio en una oportunidad de visualización (RF-F6)
+  - name: Impresiones
+    description: Registro de impresiones facturables y facturación (RF-F7)
+
+paths:
+
+  # ===================================================================
+  # ANUNCIANTES (RF-F1)
+  # ===================================================================
+  /anunciantes:
+    post:
+      tags: [Anunciantes]
+      summary: Registrar una nueva cuenta de anunciante
+      operationId: crearAnunciante
+      description: |
+        **Quién puede ejecutarla (RNF-1):** actor "anunciante" autenticado
+        o administrador de la plataforma. Cubre RF-F1 (alta de anunciante).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnuncianteCreacion'
+      responses:
+        '201':
+          description: Cuenta de anunciante creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Anunciante'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  /anunciantes/{accountId}:
+    get:
+      tags: [Anunciantes]
+      summary: Consultar el perfil de un anunciante
+      operationId: obtenerAnunciante
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el propio anunciante autenticado
+        o administrador. Cubre RF-F1.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: Perfil del anunciante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Anunciante'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    patch:
+      tags: [Anunciantes]
+      summary: Actualizar datos del anunciante
+      operationId: actualizarAnunciante
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el propio anunciante autenticado.
+        Cubre RF-F1.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnuncianteActualizacion'
+      responses:
+        '200':
+          description: Anunciante actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Anunciante'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # CAMPAÑAS (RF-F1, RF-F2)
+  # ===================================================================
+  /anunciantes/{accountId}/campanas:
+    get:
+      tags: [Campañas]
+      summary: Listar las campañas de un anunciante
+      operationId: listarCampanas
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño de la cuenta.
+        Listado **paginado** según RNF-3. Cubre RF-F1.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - name: estado
+          in: query
+          required: false
+          description: Filtrar por estado de la campaña
+          schema:
+            type: string
+            enum: [activa, pausada, agotada, finalizada]
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de campañas del anunciante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeCampanas'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    post:
+      tags: [Campañas]
+      summary: Crear una nueva campaña publicitaria
+      operationId: crearCampana
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante autenticado dueño
+        de la cuenta. Cubre RF-F1 (creación de campaña) y RF-F2 (define
+        el presupuesto total y las fechas de vigencia).
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampanaCreacion'
+      responses:
+        '201':
+          description: Campaña creada en estado activa (o pausada si se indica)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campana'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /campanas/{campaignId}:
+    get:
+      tags: [Campañas]
+      summary: Consultar el detalle de una campaña
+      operationId: obtenerCampana
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño o
+        administrador de la plataforma. Incluye presupuesto restante
+        en tiempo real. Cubre RF-F2.
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      responses:
+        '200':
+          description: Detalle de la campaña con presupuesto actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campana'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    patch:
+      tags: [Campañas]
+      summary: Actualizar o pausar una campaña
+      operationId: actualizarCampana
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño.
+        Permite cambiar presupuesto, fechas o estado (activa/pausada).
+        No se puede reactivar una campaña en estado `agotada`. Cubre RF-F2.
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampanaActualizacion'
+      responses:
+        '200':
+          description: Campaña actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campana'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  # ===================================================================
+  # CREATIVOS (RF-F1)
+  # ===================================================================
+  /campanas/{campaignId}/creativos:
+    get:
+      tags: [Creativos]
+      summary: Listar los creativos de una campaña
+      operationId: listarCreativos
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño de la campaña.
+        Cubre RF-F1.
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      responses:
+        '200':
+          description: Lista de creativos de la campaña
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Creativo'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    post:
+      tags: [Creativos]
+      summary: Añadir un creativo a una campaña
+      operationId: crearCreativo
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño de la campaña.
+        El asset del creativo (video, imagen) ya debe estar subido a la
+        plataforma de assets compartida; este endpoint solo registra la
+        referencia y los metadatos del creativo. Cubre RF-F1.
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreativoCreacion'
+      responses:
+        '201':
+          description: Creativo registrado; queda en estado `pendienteRevision`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Creativo'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /campanas/{campaignId}/creativos/{creativeId}:
+    get:
+      tags: [Creativos]
+      summary: Consultar un creativo
+      operationId: obtenerCreativo
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño de la campaña.
+        Cubre RF-F1.
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+        - $ref: '#/components/parameters/CreativeId'
+      responses:
+        '200':
+          description: Detalle del creativo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Creativo'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    delete:
+      tags: [Creativos]
+      summary: Eliminar un creativo de una campaña
+      operationId: eliminarCreativo
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño.
+        Solo se puede eliminar si el creativo no tiene impresiones activas.
+        Cubre RF-F1.
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+        - $ref: '#/components/parameters/CreativeId'
+      responses:
+        '204':
+          description: Creativo eliminado
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+
+  # ===================================================================
+  # TARGETING (RF-F3)
+  # ===================================================================
+  /campanas/{campaignId}/targeting:
+    get:
+      tags: [Targeting]
+      summary: Consultar las reglas de targeting de una campaña
+      operationId: obtenerTargeting
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño de la campaña.
+        Cubre RF-F3.
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      responses:
+        '200':
+          description: Reglas de targeting configuradas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReglasTargeting'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    put:
+      tags: [Targeting]
+      summary: Configurar o reemplazar las reglas de targeting
+      operationId: configurarTargeting
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño de la campaña.
+
+        Reemplaza el conjunto completo de reglas de targeting. Permite
+        segmentar por categorías de contenido, países y rango etario.
+        Las señales de afinidad de audiencia (`SenalEngagement` de Audiencia)
+        se usan internamente por el motor de ad decisions; no se exponen
+        aquí como parámetro directo. Cubre RF-F3.
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReglasTargeting'
+      responses:
+        '200':
+          description: Reglas de targeting actualizadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReglasTargeting'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # BRAND SAFETY (RF-F4, RF-F5)
+  # ===================================================================
+  /campanas/{campaignId}/brand-safety:
+    get:
+      tags: [BrandSafety]
+      summary: Consultar las reglas de brand safety de una campaña
+      operationId: obtenerBrandSafety
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño de la campaña.
+        Cubre RF-F4.
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      responses:
+        '200':
+          description: Reglas de brand safety configuradas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReglasBrandSafety'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    put:
+      tags: [BrandSafety]
+      summary: Configurar o reemplazar las reglas de brand safety
+      operationId: configurarBrandSafety
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño de la campaña.
+
+        Reemplaza el conjunto de exclusiones de la campaña. La categoría
+        del contenido proviene del payload de `ContenidoPublicado` (Catálogo),
+        almacenada en el `InventorySlot` (decisión 5). En el momento de
+        la ad decision, el motor compara las categorías del slot contra
+        las `categoriasExcluidas` de la campaña. Cubre RF-F4.
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReglasBrandSafety'
+      responses:
+        '200':
+          description: Reglas de brand safety actualizadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReglasBrandSafety'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # INVENTORY (RF-F5)
+  # ===================================================================
+  /inventory:
+    get:
+      tags: [Inventory]
+      summary: Consultar el inventory publicitario disponible
+      operationId: listarInventory
+      description: |
+        **Quién puede ejecutarla (RNF-1):** actor "sistema" (motor de ad
+        decisions) o administrador. Los anunciantes no acceden directamente
+        al inventory; lo usan indirectamente a través de las ad decisions.
+
+        Permite filtrar por estado, categoría y monetizable para que el motor
+        de ad decisions seleccione slots elegibles. Cubre RF-F5.
+        Listado **paginado** según RNF-3.
+      parameters:
+        - name: estado
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [activo, suspendido, restringido]
+        - name: categoria
+          in: query
+          required: false
+          description: Filtrar por categoría del contenido (para brand safety)
+          schema:
+            type: string
+        - name: monetizable
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de inventory slots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeInventory'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+
+  /inventory/{catalogItemId}:
+    get:
+      tags: [Inventory]
+      summary: Consultar el estado del inventory de un contenido específico
+      operationId: obtenerInventorySlot
+      description: |
+        **Quién puede ejecutarla (RNF-1):** actor "sistema" o administrador.
+
+        Consulta síncrona (RNF-4) disponible para que la capa de reproducción
+        verifique si debe mostrar un slot publicitario antes de iniciar la
+        sesión de playback. Responde si el slot está activo y monetizable.
+        Cubre RF-F5.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      responses:
+        '200':
+          description: Estado del inventory slot del contenido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventorySlot'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # AD DECISIONS (RF-F6)
+  # ===================================================================
+  /ad-decisions:
+    post:
+      tags: [AdDecisions]
+      summary: Solicitar una decisión de anuncio para una oportunidad de visualización
+      operationId: solicitarAdDecision
+      description: |
+        **Quién puede ejecutarla (RNF-1):** actor "sistema" (la capa de
+        reproducción de Publicación). No es una operación del anunciante.
+
+        Recibe el contexto de la oportunidad (catalogItemId, userId opcional,
+        país, edad) y devuelve el creativo ganador tras evaluar:
+        1. Slots de inventory activos y monetizables para ese contenido.
+        2. Campañas activas cuyo targeting coincide con el contexto.
+        3. Reglas de brand safety: descarta campañas cuya categoría excluida
+           coincida con la categoría del slot (decisión 5).
+        4. Presupuesto restante: descarta campañas sin saldo.
+        Devuelve la decisión ganadora y emite el evento `AnuncioServido`.
+        Cubre RF-F6.
+
+        **Consistencia eventual (RNF-5):** si el presupuesto de la campaña
+        ganadora se agota entre la decisión y la confirmación de impresión,
+        la `AdDecision` pasa a `expirada` (ver `POST /impresiones`).
+
+        **Emite:** `AnuncioServido` — payload:
+        `{ adDecisionId, campaignId, creativeId, catalogItemId }`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdDecisionSolicitud'
+      responses:
+        '200':
+          description: Creativo ganador seleccionado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdDecision'
+        '204':
+          description: No hay anuncios elegibles para esta oportunidad
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /ad-decisions/{adDecisionId}:
+    get:
+      tags: [AdDecisions]
+      summary: Consultar el estado de una decisión de anuncio
+      operationId: obtenerAdDecision
+      description: |
+        **Quién puede ejecutarla (RNF-1):** actor "sistema" o el anunciante
+        dueño de la campaña (para auditoría). Cubre RF-F6.
+      parameters:
+        - $ref: '#/components/parameters/AdDecisionId'
+      responses:
+        '200':
+          description: Detalle de la ad decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdDecision'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # IMPRESIONES Y FACTURACIÓN (RF-F7)
+  # ===================================================================
+  /impresiones:
+    post:
+      tags: [Impresiones]
+      summary: Confirmar que un anuncio fue efectivamente mostrado
+      operationId: confirmarImpresion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** actor "sistema" (la capa de
+        reproducción de Publicación confirma el evento de visualización
+        del anuncio). No es una operación del anunciante.
+
+        Valida que la `AdDecision` referenciada:
+        - Esté en estado `servido` (no `expirada` ni `confirmada`).
+        - La campaña asociada aún tenga presupuesto al momento de la
+          confirmación (RNF-5: si el presupuesto se agotó, responde 409).
+
+        Si la validación pasa, la impresión se registra como facturable,
+        se descuenta del presupuesto de la campaña y se emiten los eventos.
+        Cubre RF-F7.
+
+        **Emite:** `ImpresionFacturableConfirmada` — payload:
+        `{ impressionId, campaignId, monto }`.
+        **Emite:** `IngresoPublicitarioGenerado` — payload:
+        `{ revenueEventId, campaignId, catalogItemId, channelId, montoBruto }`.
+        **Puede emitir:** `PresupuestoAgotado` si tras este descuento el
+        presupuesto llega a cero — payload: `{ campaignId }`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImpresionConfirmacion'
+      responses:
+        '201':
+          description: Impresión registrada como facturable; ingreso generado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Impresion'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '409':
+          description: |
+            La AdDecision está expirada o el presupuesto de la campaña
+            ya fue agotado (RNF-5). El anunciante no será facturado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /campanas/{campaignId}/impresiones:
+    get:
+      tags: [Impresiones]
+      summary: Listar las impresiones de una campaña
+      operationId: listarImpresiones
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño de la campaña.
+        Listado **paginado** según RNF-3. Cubre RF-F7 (reporte de impresiones).
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+        - name: desde
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: facturable
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de impresiones de la campaña
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeImpresiones'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /campanas/{campaignId}/facturacion:
+    get:
+      tags: [Impresiones]
+      summary: Consultar los ciclos de facturación de una campaña
+      operationId: listarCiclosFacturacion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño de la campaña.
+        Devuelve los ciclos de facturación con totales de impresiones y
+        montos por periodo. Cubre RF-F7 (facturación al anunciante).
+        Listado **paginado** según RNF-3.
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Ciclos de facturación de la campaña
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeFacturacion'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /campanas/{campaignId}/facturacion/{periodo}/reporte:
+    get:
+      tags: [Impresiones]
+      summary: Descargar el reporte de facturación de un ciclo
+      operationId: descargarReporteFacturacion
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el anunciante dueño de la campaña.
+        Devuelve el reporte CSV con el detalle de impresiones del ciclo.
+        Cubre RF-F7.
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+        - name: periodo
+          in: path
+          required: true
+          description: Periodo de facturación en formato YYYY-MM
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+      responses:
+        '200':
+          description: Reporte CSV de facturación del periodo
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+# =====================================================================
+# COMPONENTES
+# =====================================================================
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token emitido por la plataforma de identidad compartida.
+        El token identifica al actor: anunciante, sistema o administrador.
+
+  # -------------------------------------------------------------------
+  # RNF-3: parámetros reutilizables.
+  # -------------------------------------------------------------------
+  parameters:
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      description: Identificador de la cuenta del anunciante
+      schema:
+        type: string
+
+    CampaignId:
+      name: campaignId
+      in: path
+      required: true
+      description: Identificador de la campaña (campaignId compartido, RNF-2)
+      schema:
+        type: string
+
+    CreativeId:
+      name: creativeId
+      in: path
+      required: true
+      description: Identificador del creativo
+      schema:
+        type: string
+
+    CatalogItemId:
+      name: catalogItemId
+      in: path
+      required: true
+      description: Identificador del ítem de catálogo (catalogItemId compartido, RNF-2)
+      schema:
+        type: string
+
+    AdDecisionId:
+      name: adDecisionId
+      in: path
+      required: true
+      description: Identificador de la ad decision
+      schema:
+        type: string
+
+    Pagina:
+      name: pagina
+      in: query
+      required: false
+      description: Número de página, desde 1 (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    TamanoPagina:
+      name: tamanoPagina
+      in: query
+      required: false
+      description: Cantidad de ítems por página (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  # -------------------------------------------------------------------
+  # RNF-3: respuestas de error reutilizables.
+  # -------------------------------------------------------------------
+  responses:
+    PeticionInvalida:
+      description: Los datos enviados no son válidos (400)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NoAutenticado:
+      description: Falta el token o es inválido (401)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    SinPermiso:
+      description: El actor autenticado no puede ejecutar esta operación (403)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NoEncontrado:
+      description: El recurso no existe (404)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflicto:
+      description: El estado actual del recurso impide la operación (409)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+
+    # -----------------------------------------------------------------
+    # RNF-3: formato de error único de esta API.
+    # -----------------------------------------------------------------
+    Error:
+      type: object
+      description: Formato de error consistente del contexto Publicidad (RNF-3)
+      required:
+        - codigo
+        - mensaje
+      properties:
+        codigo:
+          type: string
+          example: PRESUPUESTO_AGOTADO
+        mensaje:
+          type: string
+          example: La campaña no tiene presupuesto disponible para nuevas impresiones
+        detalles:
+          type: array
+          items:
+            type: string
+
+    # -----------------------------------------------------------------
+    # Anunciante
+    # RNF-2: "anunciante" es propio de Publicidad. No comparte modelo
+    # con ningún otro contexto; solo comparte accountId como referencia.
+    # -----------------------------------------------------------------
+    Anunciante:
+      type: object
+      description: Cuenta de anunciante en la plataforma (RF-F1)
+      required:
+        - accountId
+        - nombre
+        - estado
+      properties:
+        accountId:
+          type: string
+        nombre:
+          type: string
+        email:
+          type: string
+          format: email
+        estado:
+          type: string
+          enum: [activo, suspendido]
+        fechaCreacion:
+          type: string
+          format: date-time
+
+    AnuncianteCreacion:
+      type: object
+      required:
+        - nombre
+        - email
+      properties:
+        nombre:
+          type: string
+        email:
+          type: string
+          format: email
+
+    AnuncianteActualizacion:
+      type: object
+      properties:
+        nombre:
+          type: string
+        email:
+          type: string
+          format: email
+
+    # -----------------------------------------------------------------
+    # Campaña
+    # -----------------------------------------------------------------
+    Campana:
+      type: object
+      description: Campaña publicitaria de un anunciante (RF-F1, RF-F2)
+      required:
+        - campaignId
+        - accountId
+        - nombre
+        - objetivo
+        - presupuestoTotalCentavos
+        - presupuestoRestanteCentavos
+        - moneda
+        - estado
+        - fechaInicio
+        - fechaFin
+      properties:
+        campaignId:
+          type: string
+        accountId:
+          type: string
+          description: Anunciante dueño de la campaña
+        nombre:
+          type: string
+        objetivo:
+          type: string
+          enum: [awareness, trafico, conversion]
+          description: Objetivo de negocio de la campaña
+        presupuestoTotalCentavos:
+          type: integer
+          description: Presupuesto total asignado en centavos
+        presupuestoRestanteCentavos:
+          type: integer
+          description: Presupuesto disponible para nuevas impresiones (RF-F2)
+        moneda:
+          type: string
+          example: USD
+        estado:
+          type: string
+          enum: [activa, pausada, agotada, finalizada]
+          description: |
+            activa: corriendo y aceptando impresiones.
+            pausada: detenida temporalmente por el anunciante.
+            agotada: presupuesto llegó a cero; emitió PresupuestoAgotado (RNF-5).
+            finalizada: fechaFin superada o cancelada manualmente.
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+
+    CampanaCreacion:
+      type: object
+      required:
+        - nombre
+        - objetivo
+        - presupuestoTotalCentavos
+        - moneda
+        - fechaInicio
+        - fechaFin
+      properties:
+        nombre:
+          type: string
+        objetivo:
+          type: string
+          enum: [awareness, trafico, conversion]
+        presupuestoTotalCentavos:
+          type: integer
+          minimum: 1
+        moneda:
+          type: string
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+
+    CampanaActualizacion:
+      type: object
+      properties:
+        nombre:
+          type: string
+        presupuestoTotalCentavos:
+          type: integer
+          minimum: 1
+          description: Solo puede aumentarse, nunca reducirse por debajo del gasto actual
+        estado:
+          type: string
+          enum: [activa, pausada]
+          description: No se puede reactivar una campaña en estado agotada
+        fechaFin:
+          type: string
+          format: date-time
+
+    PaginaDeCampanas:
+      type: object
+      description: Envoltorio de paginación de campañas (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Campana'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    # -----------------------------------------------------------------
+    # Creativo
+    # RNF-2: urlAsset es solo la URL del archivo — el asset técnico
+    # vive en Publicación; aquí solo se guarda la referencia.
+    # -----------------------------------------------------------------
+    Creativo:
+      type: object
+      description: Material creativo vinculado a una campaña (RF-F1)
+      required:
+        - creativeId
+        - campaignId
+        - tipo
+        - urlAsset
+        - estado
+      properties:
+        creativeId:
+          type: string
+        campaignId:
+          type: string
+        tipo:
+          type: string
+          enum: [video_pre_roll, banner, overlay]
+        duracionSeg:
+          type: integer
+          description: Duración en segundos (presente si tipo es video_pre_roll)
+        urlAsset:
+          type: string
+          description: URL del asset ya subido a la plataforma compartida (RNF-2)
+        estado:
+          type: string
+          enum: [pendienteRevision, aprobado, rechazado]
+
+    CreativoCreacion:
+      type: object
+      required:
+        - tipo
+        - urlAsset
+      properties:
+        tipo:
+          type: string
+          enum: [video_pre_roll, banner, overlay]
+        duracionSeg:
+          type: integer
+          minimum: 1
+        urlAsset:
+          type: string
+
+    # -----------------------------------------------------------------
+    # Targeting
+    # -----------------------------------------------------------------
+    ReglasTargeting:
+      type: object
+      description: |
+        Reglas de segmentación de audiencia y territorio para una campaña
+        (RF-F3). Las señales de afinidad de `SenalEngagement` (Audiencia)
+        se aplican internamente en el motor de ad decisions; no son
+        configurables directamente por el anunciante.
+      properties:
+        campaignId:
+          type: string
+          readOnly: true
+        categorias:
+          type: array
+          description: Categorías de contenido donde se quiere aparecer (whitelist)
+          items:
+            type: string
+        paises:
+          type: array
+          description: Países donde se sirve el anuncio (vacío = todos)
+          items:
+            type: string
+        edadMinima:
+          type: integer
+          minimum: 13
+          description: Edad mínima del espectador objetivo
+        edadMaxima:
+          type: integer
+          maximum: 120
+          description: Edad máxima del espectador objetivo
+        palabrasClave:
+          type: array
+          description: Palabras clave de contenido para coincidencia contextual
+          items:
+            type: string
+
+    # -----------------------------------------------------------------
+    # Brand Safety
+    # -----------------------------------------------------------------
+    ReglasBrandSafety:
+      type: object
+      description: |
+        Exclusiones de brand safety para una campaña (RF-F4).
+        La categoría del slot proviene del payload de ContenidoPublicado
+        (Catálogo), almacenada localmente en el InventorySlot (decisión 5).
+        El motor de ad decisions las compara en tiempo de decisión.
+      properties:
+        campaignId:
+          type: string
+          readOnly: true
+        categoriasExcluidas:
+          type: array
+          description: Categorías de contenido donde NO debe aparecer el anuncio
+          items:
+            type: string
+        palabrasExcluidas:
+          type: array
+          description: Palabras clave cuya presencia en el contenido excluye el slot
+          items:
+            type: string
+        nivelSensibilidad:
+          type: string
+          enum: [bajo, medio, alto]
+          description: |
+            Nivel predefinido de filtro de brand safety.
+            alto: excluye contenido controvertido, noticias, política.
+            medio: excluye contenido adulto y violencia.
+            bajo: solo excluye categorías explícitamente listadas.
+
+    # -----------------------------------------------------------------
+    # Inventory
+    # RNF-2: InventorySlot usa solo catalogItemId y channelId como IDs
+    # compartidos. La categoría es una copia local proveniente del
+    # evento ContenidoPublicado (decisión 5) — no es el modelo de Catálogo.
+    # -----------------------------------------------------------------
+    InventorySlot:
+      type: object
+      description: |
+        Slot publicitario asociado a un contenido monetizable (RF-F5).
+        El "video" en este contexto es este slot — un espacio donde puede
+        mostrarse un anuncio, no el asset técnico ni el ítem editorial.
+        Creado automáticamente al consumir ContenidoPublicado (Catálogo).
+      required:
+        - catalogItemId
+        - channelId
+        - monetizable
+        - estado
+      properties:
+        catalogItemId:
+          type: string
+          description: ID compartido del contenido (RNF-2)
+        channelId:
+          type: string
+          description: ID compartido del canal fuente de inventory (RNF-2)
+        categoria:
+          type: string
+          description: |
+            Categoría del contenido para brand safety.
+            Obtenida del payload de ContenidoPublicado (decisión 5).
+        monetizable:
+          type: boolean
+          description: |
+            Refleja el flag monetizable del payload de ContenidoPublicado
+            y se actualiza al consumir MonetizacionDeshabilitada o
+            RestriccionAplicada tipo monetizacion.
+        estado:
+          type: string
+          enum: [activo, suspendido, restringido]
+          description: |
+            activo: disponible para recibir anuncios.
+            suspendido: ContenidoDespublicado o MonetizacionDeshabilitada recibido.
+            restringido: RestriccionAplicada recibido (puede ser parcial).
+
+    PaginaDeInventory:
+      type: object
+      description: Envoltorio de paginación de inventory slots (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventorySlot'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    # -----------------------------------------------------------------
+    # Ad Decision
+    # -----------------------------------------------------------------
+    AdDecisionSolicitud:
+      type: object
+      description: Contexto de una oportunidad de visualización para la ad decision (RF-F6)
+      required:
+        - catalogItemId
+        - channelId
+      properties:
+        catalogItemId:
+          type: string
+          description: Contenido que se está reproduciendo (catalogItemId, RNF-2)
+        channelId:
+          type: string
+          description: Canal del contenido (channelId, RNF-2)
+        userId:
+          type: string
+          description: Viewer (opcional; ausente en reproducción no autenticada)
+        pais:
+          type: string
+          description: País del viewer para aplicar targeting geográfico (RF-F3)
+        edadEstimada:
+          type: integer
+          description: Edad del viewer para aplicar targeting etario (RF-F3)
+
+    AdDecision:
+      type: object
+      description: |
+        Decisión de anuncio ganadora para una oportunidad de visualización
+        (RF-F6). Registra qué creativo se seleccionó y en qué estado está.
+      required:
+        - adDecisionId
+        - campaignId
+        - creativeId
+        - catalogItemId
+        - channelId
+        - estado
+        - fechaDecision
+      properties:
+        adDecisionId:
+          type: string
+        campaignId:
+          type: string
+          description: Campaña ganadora (campaignId compartido, RNF-2)
+        creativeId:
+          type: string
+          description: Creativo seleccionado para mostrar
+        catalogItemId:
+          type: string
+          description: Contenido donde se sirve el anuncio (catalogItemId, RNF-2)
+        channelId:
+          type: string
+          description: Canal fuente del inventory (channelId, RNF-2)
+        estado:
+          type: string
+          enum: [servido, confirmado, expirada]
+          description: |
+            servido: AnuncioServido emitido; esperando confirmación de impresión.
+            confirmado: ImpresionFacturableConfirmada emitida.
+            expirada: PresupuestoAgotado llegó antes de la confirmación (RNF-5).
+        fechaDecision:
+          type: string
+          format: date-time
+
+    # -----------------------------------------------------------------
+    # Impresión y facturación
+    # -----------------------------------------------------------------
+    ImpresionConfirmacion:
+      type: object
+      description: Confirmación de que el anuncio fue efectivamente mostrado (RF-F7)
+      required:
+        - adDecisionId
+      properties:
+        adDecisionId:
+          type: string
+          description: AdDecision que originó el anuncio servido
+        duracionVistaSeg:
+          type: integer
+          description: Segundos que el usuario vio el anuncio (para vídeos saltables)
+
+    Impresion:
+      type: object
+      description: |
+        Impresión facturable registrada (RF-F7).
+        Cada impresión confirmada descuenta del presupuesto de la campaña
+        y genera el evento IngresoPublicitarioGenerado hacia Monetización.
+      required:
+        - impressionId
+        - adDecisionId
+        - campaignId
+        - montoCentavos
+        - moneda
+        - facturable
+        - fechaConfirmacion
+      properties:
+        impressionId:
+          type: string
+        adDecisionId:
+          type: string
+        campaignId:
+          type: string
+        catalogItemId:
+          type: string
+          description: Contenido donde se mostró el anuncio (catalogItemId, RNF-2)
+        channelId:
+          type: string
+          description: Canal fuente del inventory (channelId, RNF-2)
+        montoCentavos:
+          type: integer
+          description: Monto facturado al anunciante por esta impresión
+        moneda:
+          type: string
+        facturable:
+          type: boolean
+          description: true si generó IngresoPublicitarioGenerado hacia Monetización
+        fechaConfirmacion:
+          type: string
+          format: date-time
+
+    PaginaDeImpresiones:
+      type: object
+      description: Envoltorio de paginación de impresiones (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Impresion'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    FacturacionCiclo:
+      type: object
+      description: Ciclo de facturación mensual de una campaña (RF-F7)
+      required:
+        - campaignId
+        - periodo
+        - totalImpresiones
+        - montoTotalCentavos
+        - moneda
+        - estado
+      properties:
+        campaignId:
+          type: string
+        periodo:
+          type: string
+          description: Mes de facturación en formato YYYY-MM
+          example: '2026-06'
+        totalImpresiones:
+          type: integer
+        montoTotalCentavos:
+          type: integer
+        moneda:
+          type: string
+        estado:
+          type: string
+          enum: [abierto, cerrado, facturado]
+          description: |
+            abierto: ciclo en curso; puede recibir más impresiones.
+            cerrado: periodo terminado; pendiente de emitir factura.
+            facturado: factura emitida al anunciante.
+
+    PaginaDeFacturacion:
+      type: object
+      description: Envoltorio de paginación de ciclos de facturación (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FacturacionCiclo'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer

@@ -1,0 +1,143 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="publicidad-secuencia" name="Publicidad - Diagrama de Secuencia">
+    <mxGraphModel dx="1100" dy="750" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <mxCell id="titulo" value="Contexto 6 — Publicidad: del contenido publicado a la impresión facturable&#xa;(5 fases: inventory → ad decision → confirmación → ingreso → consistencia eventual RNF-5)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="10" width="1160" height="46" as="geometry" />
+    </mxCell>
+
+    <mxCell id="cat_head" value="Catálogo&#xa;(ctx 2)" style="swimlane;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="60" y="80" width="110" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="cat_line" value="" style="endArrow=none;dashed=1;strokeColor=#6c8ebf;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="115" y="126" as="sourcePoint" /><mxPoint x="115" y="1000" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="pub_head" value="Publicidad&#xa;(ctx 6)" style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="220" y="80" width="120" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="pub_line" value="" style="endArrow=none;dashed=1;strokeColor=#82b366;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="280" y="126" as="sourcePoint" /><mxPoint x="280" y="1000" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="bus_head" value="Bus de eventos" style="swimlane;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="400" y="80" width="120" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="bus_line" value="" style="endArrow=none;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="460" y="126" as="sourcePoint" /><mxPoint x="460" y="1000" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="rep_head" value="Reproducción&#xa;(Publicación)" style="swimlane;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+      <mxGeometry x="580" y="80" width="130" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="rep_line" value="" style="endArrow=none;dashed=1;strokeColor=#9673a6;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="645" y="126" as="sourcePoint" /><mxPoint x="645" y="1000" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="mon_head" value="Monetización&#xa;(ctx 5)" style="swimlane;startSize=30;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="780" y="80" width="130" height="46" as="geometry" />
+    </mxCell>
+    <mxCell id="mon_line" value="" style="endArrow=none;dashed=1;strokeColor=#d79b00;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="845" y="126" as="sourcePoint" /><mxPoint x="845" y="1000" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="f1_label" value="FASE 1 — Catálogo publica contenido; Publicidad crea InventorySlot (decisión 5)" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="155" width="580" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f1_e1" value="ContenidoPublicado { catalogItemId, channelId, categoria, monetizable: true } (async)" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#6c8ebf;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="115" y="192" as="sourcePoint" /><mxPoint x="460" y="192" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f1_e2" value="ContenidoPublicado" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="460" y="212" as="sourcePoint" /><mxPoint x="280" y="212" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f1_note" value="crea InventorySlot { catalogItemId, channelId, categoria, monetizable:true, estado:activo }" style="text;fontSize=9;fillColor=#d5e8d4;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="200" y="224" width="370" height="16" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f2_label" value="FASE 2 — Capa de reproducción solicita ad decision (RNF-4 consulta síncrona)" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="258" width="580" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f2_e1" value="GET /inventory/{catalogItemId} — ¿hay slot activo?" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#9673a6;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="645" y="294" as="sourcePoint" /><mxPoint x="280" y="294" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f2_e2" value="200 { estado: activo, monetizable: true }" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#82b366;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="280" y="314" as="sourcePoint" /><mxPoint x="645" y="314" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="f2_e3" value="POST /ad-decisions { catalogItemId, channelId, userId, pais, edadEstimada }" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#9673a6;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="645" y="344" as="sourcePoint" /><mxPoint x="280" y="344" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f2_note1" value="evalúa: targeting (categoria, país, edad) + brand safety (categoriasExcluidas) + presupuesto" style="text;fontSize=9;fillColor=#d5e8d4;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="200" y="356" width="410" height="16" as="geometry" />
+    </mxCell>
+    <mxCell id="f2_e4" value="AnuncioServido { adDecisionId, campaignId, creativeId, catalogItemId } (async)" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#82b366;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="280" y="384" as="sourcePoint" /><mxPoint x="460" y="384" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f2_e5" value="200 AdDecision { adDecisionId, creativeId, estado: servido }" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#82b366;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="280" y="404" as="sourcePoint" /><mxPoint x="645" y="404" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f2_note2" value="Reproducción muestra el creativo al espectador" style="text;fontSize=9;fillColor=#e1d5e7;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="565" y="416" width="240" height="16" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f3_label" value="FASE 3 — Reproducción confirma impresión (async desde el cliente)" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="450" width="520" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f3_e1" value="POST /impresiones { adDecisionId, duracionVistaSeg }" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#9673a6;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="645" y="486" as="sourcePoint" /><mxPoint x="280" y="486" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f3_note1" value="valida: AdDecision.estado == 'servido' &amp;&amp; presupuestoRestante > 0" style="text;fontSize=9;fillColor=#d5e8d4;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="200" y="498" width="350" height="16" as="geometry" />
+    </mxCell>
+    <mxCell id="f3_e2" value="ImpresionFacturableConfirmada { impressionId, campaignId, monto } (async)" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#82b366;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="280" y="526" as="sourcePoint" /><mxPoint x="460" y="526" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f3_e3" value="201 Impresion { impressionId, facturable: true }" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#82b366;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="280" y="546" as="sourcePoint" /><mxPoint x="645" y="546" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="f4_label" value="FASE 4 — Publicidad emite IngresoPublicitarioGenerado; Monetización aplica revenue share" style="text;fontStyle=2;fontSize=10;fillColor=#f5f5f5;strokeColor=#666;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="580" width="620" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f4_e1" value="IngresoPublicitarioGenerado { revenueEventId, campaignId, catalogItemId, channelId, montoBruto } (async)" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#82b366;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="280" y="616" as="sourcePoint" /><mxPoint x="460" y="616" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f4_e2" value="IngresoPublicitarioGenerado" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="460" y="636" as="sourcePoint" /><mxPoint x="845" y="636" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f4_note" value="aplica revenue share → crea Ingreso { fuente: publicidad, montoNeto }" style="text;fontSize=9;fillColor=#ffe6cc;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="760" y="648" width="290" height="16" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f5_label" value="FASE 5 — Consistencia eventual (RNF-5): presupuesto agotado durante decisiones en vuelo" style="text;fontStyle=2;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="686" width="650" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="f5_e1" value="POST /impresiones { adDecisionId: X } — llega DESPUÉS del agotamiento" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#9673a6;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="645" y="722" as="sourcePoint" /><mxPoint x="280" y="722" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f5_note1" value="AdDecision X está en estado 'expirada' (PresupuestoAgotado ya procesado)" style="text;fontSize=9;fillColor=#f8cecc;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="200" y="734" width="380" height="16" as="geometry" />
+    </mxCell>
+    <mxCell id="f5_e2" value="409 { codigo: PRESUPUESTO_AGOTADO } — impresión rechazada, anunciante no facturado" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="280" y="762" as="sourcePoint" /><mxPoint x="645" y="762" as="targetPoint" /></mxGeometry>
+    </mxCell>
+
+    <mxCell id="f5_e3" value="PresupuestoAgotado { campaignId } (async) — emitido cuando presupuestoRestante llega a 0" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#82b366;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry"><mxPoint x="280" y="792" as="sourcePoint" /><mxPoint x="460" y="792" as="targetPoint" /></mxGeometry>
+    </mxCell>
+    <mxCell id="f5_note2" value="RNF-5: la ventana entre AdDecision 'servido' y la confirmación de impresión&#xa;es la zona de riesgo. Las AdDecision en vuelo quedan 'expiradas' al agotarse&#xa;el presupuesto. El anunciante NUNCA es facturado por impresiones posteriores." style="text;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;rounded=1;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="60" y="820" width="540" height="48" as="geometry" />
+    </mxCell>
+
+  </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

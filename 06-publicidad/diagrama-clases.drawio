@@ -1,0 +1,259 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="publicidad-clases" name="Publicidad - Diagrama de Clases">
+    <mxGraphModel dx="1100" dy="750" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <mxCell id="titulo" value="Contexto 6 — Publicidad&#xa;Diagrama de clases (borrador conceptual)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="20" width="1100" height="46" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Anunciante" value="Anunciante" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="40" y="100" width="220" height="110" as="geometry" />
+    </mxCell>
+    <mxCell id="An_a" value="accountId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Anunciante">
+      <mxGeometry y="30" width="220" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="An_b" value="nombre: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Anunciante">
+      <mxGeometry y="50" width="220" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="An_c" value="email: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Anunciante">
+      <mxGeometry y="70" width="220" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="An_d" value="estado: activo | suspendido" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Anunciante">
+      <mxGeometry y="90" width="220" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Campana" value="Campana" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="300" y="100" width="270" height="190" as="geometry" />
+    </mxCell>
+    <mxCell id="Ca_a" value="campaignId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Campana">
+      <mxGeometry y="30" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ca_b" value="accountId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Campana">
+      <mxGeometry y="50" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ca_c" value="nombre: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Campana">
+      <mxGeometry y="70" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ca_d" value="objetivo: awareness | trafico | conversion" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Campana">
+      <mxGeometry y="90" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ca_e" value="presupuestoTotalCentavos: int" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Campana">
+      <mxGeometry y="110" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ca_f" value="presupuestoRestanteCentavos: int" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Campana">
+      <mxGeometry y="130" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ca_g" value="estado: activa | pausada | agotada | finalizada" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Campana">
+      <mxGeometry y="150" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ca_h" value="fechaInicio / fechaFin: date-time" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Campana">
+      <mxGeometry y="170" width="270" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="AnCa" value="1..* crea" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="Anunciante" target="Campana" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Creativo" value="Creativo" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="610" y="100" width="260" height="150" as="geometry" />
+    </mxCell>
+    <mxCell id="Cr_a" value="creativeId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Creativo">
+      <mxGeometry y="30" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Cr_b" value="campaignId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Creativo">
+      <mxGeometry y="50" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Cr_c" value="tipo: video_pre_roll | banner | overlay" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Creativo">
+      <mxGeometry y="70" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Cr_d" value="duracionSeg: int [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Creativo">
+      <mxGeometry y="90" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Cr_e" value="urlAsset: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Creativo">
+      <mxGeometry y="110" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Cr_f" value="estado: pendienteRevision | aprobado | rechazado" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Creativo">
+      <mxGeometry y="130" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Cr_note" value="urlAsset: referencia al asset técnico (RNF-2 — no copia modelo de Publicación)" style="text;strokeColor=none;fillColor=#ffffc0;align=left;spacingLeft=4;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="610" y="250" width="260" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="CaCr" value="1..* tiene" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="Campana" target="Creativo" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Targeting" value="ReglasTargeting" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="300" y="350" width="270" height="150" as="geometry" />
+    </mxCell>
+    <mxCell id="Tg_a" value="campaignId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Targeting">
+      <mxGeometry y="30" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Tg_b" value="categorias: string[]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Targeting">
+      <mxGeometry y="50" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Tg_c" value="paises: string[]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Targeting">
+      <mxGeometry y="70" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Tg_d" value="edadMinima: int" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Targeting">
+      <mxGeometry y="90" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Tg_e" value="edadMaxima: int" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Targeting">
+      <mxGeometry y="110" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Tg_f" value="palabrasClave: string[]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Targeting">
+      <mxGeometry y="130" width="270" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="CaTg" value="1 configura" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="Campana" target="Targeting" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="BrandSafety" value="ReglasBrandSafety" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="610" y="350" width="260" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="BS_a" value="campaignId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="BrandSafety">
+      <mxGeometry y="30" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="BS_b" value="categoriasExcluidas: string[]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="BrandSafety">
+      <mxGeometry y="50" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="BS_c" value="palabrasExcluidas: string[]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="BrandSafety">
+      <mxGeometry y="70" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="BS_d" value="nivelSensibilidad: bajo | medio | alto" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="BrandSafety">
+      <mxGeometry y="90" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="BS_note" value="categoria del slot: viene de ContenidoPublicado (decisión 5)" style="text;strokeColor=none;fillColor=#ffffc0;align=left;spacingLeft=4;fontSize=9;" vertex="1" parent="BrandSafety">
+      <mxGeometry y="110" width="260" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="CaBS" value="1 configura" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="Campana" target="BrandSafety" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Inventory" value="InventorySlot" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="40" y="350" width="230" height="150" as="geometry" />
+    </mxCell>
+    <mxCell id="Inv_a" value="catalogItemId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Inventory">
+      <mxGeometry y="30" width="230" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Inv_b" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Inventory">
+      <mxGeometry y="50" width="230" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Inv_c" value="categoria: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Inventory">
+      <mxGeometry y="70" width="230" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Inv_d" value="monetizable: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Inventory">
+      <mxGeometry y="90" width="230" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Inv_e" value="estado: activo | suspendido | restringido" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Inventory">
+      <mxGeometry y="110" width="230" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Inv_note" value="«slot publicitario» — solo IDs (RNF-2)&#xa;creado por evento ContenidoPublicado" style="text;strokeColor=none;fillColor=#ffffc0;align=left;spacingLeft=4;fontSize=9;" vertex="1" parent="Inventory">
+      <mxGeometry y="130" width="230" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="AdDecision" value="AdDecision" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="40" y="580" width="260" height="170" as="geometry" />
+    </mxCell>
+    <mxCell id="Ad_a" value="adDecisionId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="AdDecision">
+      <mxGeometry y="30" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ad_b" value="campaignId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="AdDecision">
+      <mxGeometry y="50" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ad_c" value="creativeId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="AdDecision">
+      <mxGeometry y="70" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ad_d" value="catalogItemId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="AdDecision">
+      <mxGeometry y="90" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ad_e" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="AdDecision">
+      <mxGeometry y="110" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ad_f" value="estado: servido | confirmado | expirada" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="AdDecision">
+      <mxGeometry y="130" width="260" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ad_g" value="fechaDecision: date-time" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="AdDecision">
+      <mxGeometry y="150" width="260" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="InvAd" value="genera" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="Inventory" target="AdDecision" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Impresion" value="Impresion" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="340" y="580" width="270" height="190" as="geometry" />
+    </mxCell>
+    <mxCell id="Im_a" value="impressionId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Impresion">
+      <mxGeometry y="30" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Im_b" value="adDecisionId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Impresion">
+      <mxGeometry y="50" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Im_c" value="campaignId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Impresion">
+      <mxGeometry y="70" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Im_d" value="catalogItemId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Impresion">
+      <mxGeometry y="90" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Im_e" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Impresion">
+      <mxGeometry y="110" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Im_f" value="montoCentavos: int" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Impresion">
+      <mxGeometry y="130" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Im_g" value="facturable: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Impresion">
+      <mxGeometry y="150" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Im_h" value="fechaConfirmacion: date-time" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Impresion">
+      <mxGeometry y="170" width="270" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="AdIm" value="1 confirma" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="AdDecision" target="Impresion" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Facturacion" value="FacturacionCiclo" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="650" y="580" width="270" height="150" as="geometry" />
+    </mxCell>
+    <mxCell id="Fa_a" value="campaignId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Facturacion">
+      <mxGeometry y="30" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Fa_b" value="periodo: string (YYYY-MM)" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Facturacion">
+      <mxGeometry y="50" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Fa_c" value="totalImpresiones: int" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Facturacion">
+      <mxGeometry y="70" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Fa_d" value="montoTotalCentavos: int" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Facturacion">
+      <mxGeometry y="90" width="270" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Fa_e" value="estado: abierto | cerrado | facturado" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Facturacion">
+      <mxGeometry y="110" width="270" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="ImFa" value="acumula en" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="Impresion" target="Facturacion" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="nota_rnf2" value="RNF-2: todos los IDs (catalogItemId, channelId, campaignId)&#xa;son compartidos. InventorySlot NO copia modelos de Catálogo&#xa;ni Publicación — solo guarda IDs y la categoría local." style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;spacingLeft=6;rounded=1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="40" y="810" width="320" height="54" as="geometry" />
+    </mxCell>
+
+    <mxCell id="nota_eventos" value="Eventos emitidos (docs/registro-eventos.md):&#xa;• AnuncioServido → al completar POST /ad-decisions&#xa;• ImpresionFacturableConfirmada → al confirmar POST /impresiones&#xa;• IngresoPublicitarioGenerado → junto a ImpresionFacturable&#xa;• PresupuestoAgotado → cuando presupuestoRestante llega a 0" style="text;strokeColor=#82b366;fillColor=#d5e8d4;align=left;spacingLeft=6;rounded=1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="380" y="810" width="320" height="74" as="geometry" />
+    </mxCell>
+
+    <mxCell id="nota_rnf5" value="RNF-5 — Consistencia eventual:&#xa;AdDecision en estado 'servido' puede quedar 'expirada'&#xa;si PresupuestoAgotado llega antes de POST /impresiones.&#xa;El anunciante nunca es facturado tras el agotamiento." style="text;strokeColor=#b85450;fillColor=#f8cecc;align=left;spacingLeft=6;rounded=1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="720" y="810" width="300" height="64" as="geometry" />
+    </mxCell>
+
+  </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
