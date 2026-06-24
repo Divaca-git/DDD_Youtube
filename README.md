@@ -87,5 +87,5 @@ en [app.diagrams.net](https://app.diagrams.net) o la app de escritorio.
 
 ## Equipo
 
-- [Integrante 1] — contextos 1, 2, 3
-- [Integrante 2] — contextos 4, 5, 6
+- [Benjamin Eduardo Campos Carvajal] — contextos 1, 2, 3
+- [Benjamin Eduardo Soto Arriaza] — contextos 4, 5, 6
