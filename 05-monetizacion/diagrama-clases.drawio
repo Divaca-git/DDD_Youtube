@@ -1,0 +1,285 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="monetizacion-clases" name="Monetizacion - Diagrama de Clases">
+    <mxGraphModel dx="1100" dy="750" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <mxCell id="titulo" value="Contexto 5 — Monetización&#xa;Diagrama de clases (borrador conceptual)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="20" width="1060" height="50" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Elegibilidad" value="ElegibilidadMonetizacion" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="40" y="100" width="280" height="170" as="geometry" />
+    </mxCell>
+    <mxCell id="Eleg_a" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Elegibilidad">
+      <mxGeometry y="30" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Eleg_b" value="elegible: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Elegibilidad">
+      <mxGeometry y="50" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Eleg_c" value="suscriptoresRequeridos: int = 1000" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Elegibilidad">
+      <mxGeometry y="70" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Eleg_d" value="suscriptoresObtenidos: int" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Elegibilidad">
+      <mxGeometry y="90" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Eleg_e" value="horasVistaRequeridas: float = 4000" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Elegibilidad">
+      <mxGeometry y="110" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Eleg_f" value="horasVistaObtenidas: float" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Elegibilidad">
+      <mxGeometry y="130" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Eleg_note" value="«snapshot» — datos tomados de Audiencia&#xa;y Publicación por consulta síncrona (RNF-4)" style="text;strokeColor=none;fillColor=#ffffc0;align=left;spacingLeft=4;fontSize=9;" vertex="1" parent="Elegibilidad">
+      <mxGeometry y="150" width="280" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="EstadoCanal" value="EstadoMonetizacionCanal" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="360" y="100" width="280" height="170" as="geometry" />
+    </mxCell>
+    <mxCell id="EC_a" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="EstadoCanal">
+      <mxGeometry y="30" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="EC_b" value="habilitada: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="EstadoCanal">
+      <mxGeometry y="50" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="EC_c" value="elegibilidadAprobada: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="EstadoCanal">
+      <mxGeometry y="70" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="EC_d" value="revenueSharePorcentaje: float" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="EstadoCanal">
+      <mxGeometry y="90" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="EC_e" value="saldoDisponible: float" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="EstadoCanal">
+      <mxGeometry y="110" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="EC_f" value="motivoDeshabilitacion: enum [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="EstadoCanal">
+      <mxGeometry y="130" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="EC_note" value="«entidad económica» — sin título editorial&#xa;(RNF-2: no copia modelo de Catálogo)" style="text;strokeColor=none;fillColor=#ffffc0;align=left;spacingLeft=4;fontSize=9;" vertex="1" parent="EstadoCanal">
+      <mxGeometry y="150" width="280" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="EstadoCont" value="EstadoMonetizacionContenido" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="680" y="100" width="280" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="ECC_a" value="catalogItemId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="EstadoCont">
+      <mxGeometry y="30" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="ECC_b" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="EstadoCont">
+      <mxGeometry y="50" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="ECC_c" value="habilitada: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="EstadoCont">
+      <mxGeometry y="70" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="ECC_d" value="estadoContenido: publicado | despublicado | pendiente-verificacion" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="EstadoCont">
+      <mxGeometry y="90" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="ECC_e" value="motivoDeshabilitacion: enum [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="EstadoCont">
+      <mxGeometry y="110" width="280" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="CanalCont" value="1..N" style="edgeStyle=orthogonalEdgeStyle;endArrow=open;endFill=0;" edge="1" source="EstadoCanal" target="EstadoCont" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="CanalEleg" value="1:1" style="edgeStyle=orthogonalEdgeStyle;endArrow=open;endFill=0;" edge="1" source="EstadoCanal" target="Elegibilidad" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Ingreso" value="Ingreso" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="40" y="340" width="280" height="190" as="geometry" />
+    </mxCell>
+    <mxCell id="Ing_a" value="ingresoId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Ingreso">
+      <mxGeometry y="30" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ing_b" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Ingreso">
+      <mxGeometry y="50" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ing_c" value="catalogItemId: string [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Ingreso">
+      <mxGeometry y="70" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ing_d" value="monto: float (neto, USD)" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Ingreso">
+      <mxGeometry y="90" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ing_e" value="fuente: publicidad | membresia | propina" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Ingreso">
+      <mxGeometry y="110" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ing_f" value="revenueEventId: string [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Ingreso">
+      <mxGeometry y="130" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ing_g" value="periodo: date (YYYY-MM)" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Ingreso">
+      <mxGeometry y="150" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ing_h" value="estado: confirmado | pendiente-verificacion | cancelado" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Ingreso">
+      <mxGeometry y="170" width="280" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="CanalIngreso" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=open;endFill=0;" edge="1" source="EstadoCanal" target="Ingreso" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="NivelMem" value="NivelMembresia" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="360" y="340" width="280" height="190" as="geometry" />
+    </mxCell>
+    <mxCell id="NM_a" value="membresiaId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="NivelMem">
+      <mxGeometry y="30" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="NM_b" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="NivelMem">
+      <mxGeometry y="50" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="NM_c" value="nombre: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="NivelMem">
+      <mxGeometry y="70" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="NM_d" value="precioMensual: float (USD)" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="NivelMem">
+      <mxGeometry y="90" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="NM_e" value="beneficios: string[]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="NivelMem">
+      <mxGeometry y="110" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="NM_f" value="estado: activo | retirado" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="NivelMem">
+      <mxGeometry y="130" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="NM_g" value="totalSuscriptoresActivos: int" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="NivelMem">
+      <mxGeometry y="150" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="NM_note" value="Máx. 5 niveles activos por canal (RF-M4)" style="text;strokeColor=none;fillColor=#ffffc0;align=left;spacingLeft=4;fontSize=9;" vertex="1" parent="NivelMem">
+      <mxGeometry y="170" width="280" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="CanalNivel" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=open;endFill=0;" edge="1" source="EstadoCanal" target="NivelMem" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="SuscMem" value="SuscripcionMembresia" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="680" y="340" width="280" height="170" as="geometry" />
+    </mxCell>
+    <mxCell id="SM_a" value="userId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="SuscMem">
+      <mxGeometry y="30" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="SM_b" value="membresiaId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="SuscMem">
+      <mxGeometry y="50" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="SM_c" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="SuscMem">
+      <mxGeometry y="70" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="SM_d" value="estado: activa | cancelada | expirada" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="SuscMem">
+      <mxGeometry y="90" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="SM_e" value="fechaInicio: date-time" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="SuscMem">
+      <mxGeometry y="110" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="SM_f" value="proximaRenovacion: date [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="SuscMem">
+      <mxGeometry y="130" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="SM_note" value="«suscripción de pago» — diferente de la social en Audiencia" style="text;strokeColor=none;fillColor=#ffffc0;align=left;spacingLeft=4;fontSize=9;" vertex="1" parent="SuscMem">
+      <mxGeometry y="150" width="280" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="NivelSusc" value="1..N" style="edgeStyle=orthogonalEdgeStyle;endArrow=open;endFill=0;" edge="1" source="NivelMem" target="SuscMem" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Propina" value="Propina" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="40" y="600" width="280" height="150" as="geometry" />
+    </mxCell>
+    <mxCell id="Prop_a" value="propinaId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Propina">
+      <mxGeometry y="30" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Prop_b" value="catalogItemId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Propina">
+      <mxGeometry y="50" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Prop_c" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Propina">
+      <mxGeometry y="70" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Prop_d" value="userId: string (viewer que envió)" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Propina">
+      <mxGeometry y="90" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Prop_e" value="monto: float (USD, bruto al viewer)" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Propina">
+      <mxGeometry y="110" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Prop_f" value="mensaje: string [opt, max 200]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Propina">
+      <mxGeometry y="130" width="280" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="MetPago" value="MetodoPago" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="360" y="600" width="280" height="150" as="geometry" />
+    </mxCell>
+    <mxCell id="MP_a" value="metodoPagoId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="MetPago">
+      <mxGeometry y="30" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="MP_b" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="MetPago">
+      <mxGeometry y="50" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="MP_c" value="tipo: transferencia_bancaria | paypal | stripe" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="MetPago">
+      <mxGeometry y="70" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="MP_d" value="alias: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="MetPago">
+      <mxGeometry y="90" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="MP_e" value="tokenPasarela: string (opaco)" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="MetPago">
+      <mxGeometry y="110" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="MP_f" value="predeterminado: bool" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="MetPago">
+      <mxGeometry y="130" width="280" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="CanalMet" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=open;endFill=0;" edge="1" source="EstadoCanal" target="MetPago" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="Retiro" value="Retiro" style="swimlane;fontStyle=1;align=center;startSize=26;" vertex="1" parent="1">
+      <mxGeometry x="680" y="600" width="280" height="170" as="geometry" />
+    </mxCell>
+    <mxCell id="Ret_a" value="payoutId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Retiro">
+      <mxGeometry y="30" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ret_b" value="channelId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Retiro">
+      <mxGeometry y="50" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ret_c" value="monto: float (USD)" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Retiro">
+      <mxGeometry y="70" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ret_d" value="metodoPagoId: string" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Retiro">
+      <mxGeometry y="90" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ret_e" value="estado: pendiente | procesando | completado | rechazado" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Retiro">
+      <mxGeometry y="110" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ret_f" value="fechaSolicitud: date-time" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Retiro">
+      <mxGeometry y="130" width="280" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="Ret_g" value="fechaCompletado: date-time [opt]" style="text;strokeColor=none;fillColor=none;align=left;spacingLeft=4;" vertex="1" parent="Retiro">
+      <mxGeometry y="150" width="280" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="MetRet" value="1..N" style="edgeStyle=orthogonalEdgeStyle;endArrow=open;endFill=0;" edge="1" source="MetPago" target="Retiro" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="CanalRet" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=open;endFill=0;dashed=1;" edge="1" source="EstadoCanal" target="Retiro" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="500" y="310" />
+          <mxPoint x="970" y="310" />
+          <mxPoint x="970" y="600" />
+          <mxPoint x="820" y="600" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="nota_rnf2" value="RNF-2: este contexto comparte IDs (channelId, catalogItemId,&#xa;userId) pero NO modelos de Catálogo, Audiencia ni Publicación.&#xa;'Canal' aquí solo tiene saldo y estado económico." style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;spacingLeft=6;rounded=1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="40" y="800" width="320" height="58" as="geometry" />
+    </mxCell>
+
+    <mxCell id="nota_eventos" value="Eventos emitidos (docs/registro-eventos.md):&#xa;• MonetizacionHabilitada / MonetizacionDeshabilitada&#xa;• IngresoAtribuido → (interno, al acreditar ingreso neto)&#xa;• PagoProcesado → cuando la pasarela confirma el retiro&#xa;&#xa;Eventos consumidos:&#xa;• ContenidoPublicado / ContenidoDespublicado (Catálogo)&#xa;• RestriccionAplicada tipo monetizacion (Catálogo)&#xa;• IngresoPublicitarioGenerado (Publicidad)" style="text;strokeColor=#82b366;fillColor=#d5e8d4;align=left;spacingLeft=6;rounded=1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="380" y="800" width="320" height="130" as="geometry" />
+    </mxCell>
+
+    <mxCell id="nota_decisiones" value="Decisiones resueltas (docs/registro-eventos.md):&#xa;• Decisión 1: elegibilidad por consultas síncronas (RNF-4)&#xa;  a Audiencia (suscriptores) y Publicación (horas vista).&#xa;• Decisión 2: MonetizacionDeshabilitada emitido a Publicidad.&#xa;• Decisión 4: membresías y propinas internas, sin contexto 7." style="text;strokeColor=#d6b656;fillColor=#fff2cc;align=left;spacingLeft=6;rounded=1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="720" y="800" width="320" height="90" as="geometry" />
+    </mxCell>
+
+  </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

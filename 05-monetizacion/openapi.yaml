@@ -1,0 +1,1920 @@
+# =====================================================================
+# Contexto 5: Monetización — OpenAPI
+# Borrador completo. Cubre RF-M1 a RF-M5.
+# Convenciones del equipo: ver docs/plantilla-openapi.yaml
+# Eventos: nombres canónicos según docs/registro-eventos.md
+# =====================================================================
+openapi: 3.0.3
+
+info:
+  title: API de Monetización
+  version: 1.0.0
+  description: |
+    **Responsabilidad del contexto (entregable 1):**
+    Gestiona cómo los creadores generan y cobran ingresos en la plataforma:
+    evaluación de elegibilidad para el Programa de Socios, habilitación de
+    monetización por canal y por contenido, registro de ingresos (publicidad,
+    membresías, propinas), membresías de pago a canales, propinas/super-gracias
+    en videos y retiros al creador.
+
+    En este contexto "canal" es una **entidad económica** (no editorial ni social):
+    tiene saldo, estado de elegibilidad y métodos de cobro. La suscripción aquí
+    es de **pago** (membresía de fan); la suscripción social vive en Audiencia.
+
+    Este contexto **no** factura a anunciantes (eso es Publicidad) ni gestiona
+    comentarios, likes o historial (eso es Audiencia). Solo recibe los ingresos
+    ya confirmados y los distribuye al creador tras el revenue share de la plataforma.
+
+    **Eventos que emite:**
+    - `MonetizacionHabilitada` / `MonetizacionDeshabilitada` — cambio de estado
+      de monetización a nivel canal o contenido (RF-M1, RF-M2).
+    - `IngresoAtribuido` — ingreso asignado al creador tras revenue share (RF-M3).
+    - `PagoProcesado` — retiro ejecutado y enviado al método de pago (RF-M5).
+    Cada operación relevante indica en su descripción qué evento emite.
+
+    **Eventos que consume:**
+    - `ContenidoPublicado` (Catálogo): para registrar el contenido como candidato
+      a monetización y leer el flag `monetizable` del payload.
+    - `ContenidoDespublicado` (Catálogo): para suspender la atribución de ingresos
+      activos sobre ese contenido.
+    - `RestriccionAplicada` (Catálogo, tipo `monetizacion`): para deshabilitar
+      automáticamente la monetización de un contenido restringido por política.
+    - `IngresoPublicitarioGenerado` (Publicidad): ingreso bruto confirmado que
+      este contexto divide según el revenue share y atribuye al creador.
+
+    Nombres y payloads según `docs/registro-eventos.md`.
+
+    **Decisiones abiertas resueltas (docs/registro-eventos.md):**
+
+    *Decisión 1 — Elegibilidad (RF-M1):* Monetización evalúa dos requisitos:
+    ≥1 000 suscriptores y ≥4 000 horas de visualización en los últimos 12 meses.
+    Ambos datos son propiedad de otros contextos, por lo que se obtienen por
+    **consulta síncrona** (RNF-4): el conteo de suscriptores se consulta a
+    Audiencia (`GET /canales/{channelId}/suscriptores/conteo`) y las horas de
+    visualización a Publicación (`GET /canales/{channelId}/watch-time/anual`).
+    Monetización no almacena estos números de forma permanente; guarda solo el
+    resultado de la evaluación y la fecha en que se realizó.
+
+    *Decisión 2 — Visibilidad de estado hacia Publicidad (RF-F5):* cuando el
+    creador deshabilita la monetización de un canal o contenido, este contexto
+    emite `MonetizacionDeshabilitada`. Publicidad es suscriptor de ese evento y
+    lo usa para dejar de servir anuncios en ese contenido. Adicionalmente,
+    cuando Catálogo aplica una restricción de tipo `monetizacion`, este contexto
+    la procesa y emite también `MonetizacionDeshabilitada`, de modo que Publicidad
+    recibe la señal por un único canal semántico.
+
+    *Decisión 4 — Membresías y propinas:* se tratan como operaciones internas de
+    este contexto. No se crea un séptimo bounded context de pagos; en cambio,
+    Monetización delega el procesamiento del pago a la pasarela externa y registra
+    solo el resultado (monto confirmado, referencia de transacción).
+
+    **Consistencia eventual (RNF-5):** caso límite documentado — un video es
+    despublicado en Catálogo mientras tenía ingresos publicitarios en vuelo
+    (impresiones ya servidas pero aún no facturadas). Decisión: los ingresos ya
+    confirmados por `IngresoPublicitarioGenerado` se atribuyen igualmente al
+    creador porque el anunciante ya fue facturado. Los ingresos pendientes de
+    confirmación se cancelan cuando llega `ContenidoDespublicado`. Si el creador
+    consulta su resumen de ingresos durante esa ventana, la API devuelve los
+    ingresos ya atribuidos marcando el campo `estado` del contenido como
+    `pendiente-verificacion`.
+
+# RNF-1: por defecto TODAS las operaciones requieren un token.
+# Las operaciones públicas lo desactivan explícitamente con `security: []`.
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Elegibilidad
+    description: Evaluación de requisitos para el Programa de Socios (RF-M1)
+  - name: EstadoMonetizacion
+    description: Habilitación y deshabilitación de monetización por canal y contenido (RF-M1, RF-M2)
+  - name: Ingresos
+    description: Registro y consulta de ingresos atribuidos al creador (RF-M3)
+  - name: Membresias
+    description: Niveles de membresía de pago y suscripciones de viewers (RF-M4)
+  - name: Propinas
+    description: Super-gracias y propinas en contenidos (RF-M4)
+  - name: Retiros
+    description: Métodos de pago y solicitudes de retiro (RF-M5)
+
+paths:
+
+  # ===================================================================
+  # ELEGIBILIDAD (RF-M1)
+  # ===================================================================
+  /canales/{channelId}/elegibilidad:
+    get:
+      tags: [Elegibilidad]
+      summary: Consultar el estado de elegibilidad del canal para monetización
+      operationId: consultarElegibilidad
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal o
+        un sistema interno.
+
+        Devuelve el resultado de la última evaluación de elegibilidad y,
+        si hay una evaluación en curso, su estado. Cubre RF-M1.
+
+        Para obtener los datos actualizados, usar
+        `POST /canales/{channelId}/elegibilidad/evaluar`.
+
+        **Consultas síncronas que realiza internamente (RNF-4,
+        Decisión 1):** este endpoint desencadena dos consultas síncronas
+        a otros contextos:
+        - Audiencia `GET /canales/{channelId}/suscriptores/conteo`
+          para verificar ≥ 1 000 suscriptores.
+        - Publicación `GET /canales/{channelId}/watch-time/anual`
+          para verificar ≥ 4 000 horas en los últimos 12 meses.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: Estado de elegibilidad actual del canal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ElegibilidadMonetizacion'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /canales/{channelId}/elegibilidad/evaluar:
+    post:
+      tags: [Elegibilidad]
+      summary: Solicitar una re-evaluación de elegibilidad
+      operationId: evaluarElegibilidad
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+
+        Lanza una evaluación fresca de los dos criterios (suscriptores y
+        horas de visualización) mediante consultas síncronas a Audiencia
+        y Publicación (RNF-4, Decisión 1). Devuelve el resultado de
+        inmediato; no es asíncrona. Cubre RF-M1.
+
+        Si el canal ya estaba aprobado, la evaluación lo confirma o
+        revoca el estado según los datos actuales.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: Resultado de la evaluación de elegibilidad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ElegibilidadMonetizacion'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # ESTADO DE MONETIZACIÓN — CANAL (RF-M1, RF-M2)
+  # ===================================================================
+  /canales/{channelId}/monetizacion:
+    get:
+      tags: [EstadoMonetizacion]
+      summary: Consultar el estado de monetización del canal
+      operationId: obtenerEstadoMonetizacionCanal
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal,
+        otros sistemas internos (consulta síncrona, RNF-4). Endpoint
+        no público para viewers.
+
+        Devuelve si el canal tiene monetización activa, el nivel de
+        revenue share aplicable y cualquier restricción vigente. Cubre
+        RF-M1 y RF-M2.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: Estado de monetización del canal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoMonetizacionCanal'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    put:
+      tags: [EstadoMonetizacion]
+      summary: Habilitar o deshabilitar la monetización del canal
+      operationId: actualizarEstadoMonetizacionCanal
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+
+        Cambia el estado global de monetización del canal. Solo puede
+        habilitarse si la elegibilidad está aprobada. Deshabilitar es
+        siempre posible por decisión del creador. Cubre RF-M1, RF-M2.
+
+        **Emite** según el valor de `habilitada`:
+        - `MonetizacionHabilitada` — payload:
+          `{ channelId, alcance: "canal" }`.
+        - `MonetizacionDeshabilitada` — payload:
+          `{ channelId, alcance: "canal" }`.
+          Publicidad consume este evento para dejar de servir anuncios
+          en todos los contenidos del canal (Decisión 2).
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CambioMonetizacionCanal'
+      responses:
+        '200':
+          description: Estado de monetización actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoMonetizacionCanal'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: |
+            No se puede habilitar la monetización porque el canal no
+            supera los criterios de elegibilidad (RF-M1).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ===================================================================
+  # ESTADO DE MONETIZACIÓN — CONTENIDO (RF-M2)
+  # ===================================================================
+  /canales/{channelId}/contenidos/{catalogItemId}/monetizacion:
+    get:
+      tags: [EstadoMonetizacion]
+      summary: Consultar el estado de monetización de un contenido específico
+      operationId: obtenerEstadoMonetizacionContenido
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal o
+        un sistema interno (consulta síncrona, RNF-4).
+
+        Permite ver si un video individual tiene monetización activa,
+        independientemente del estado del canal. Cubre RF-M2.
+
+        **Consistencia eventual (RNF-5):** si el contenido fue
+        despublicado en Catálogo pero el evento aún no llegó a este
+        contexto, la API puede mostrar `habilitada: true`. En ese caso
+        el campo `estadoContenido` toma el valor
+        `pendiente-verificacion`.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/CatalogItemId'
+      responses:
+        '200':
+          description: Estado de monetización del contenido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoMonetizacionContenido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    put:
+      tags: [EstadoMonetizacion]
+      summary: Habilitar o deshabilitar la monetización de un contenido
+      operationId: actualizarEstadoMonetizacionContenido
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+
+        Permite activar o desactivar la monetización en un video
+        concreto. La monetización del canal debe estar habilitada para
+        que esto tenga efecto real en la plataforma. Cubre RF-M2.
+
+        **Emite** según el valor de `habilitada`:
+        - `MonetizacionHabilitada` — payload:
+          `{ catalogItemId, alcance: "contenido" }`.
+        - `MonetizacionDeshabilitada` — payload:
+          `{ catalogItemId, alcance: "contenido" }`.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/CatalogItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CambioMonetizacionContenido'
+      responses:
+        '200':
+          description: Estado de monetización del contenido actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoMonetizacionContenido'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # INGRESOS (RF-M3)
+  # ===================================================================
+  /canales/{channelId}/ingresos:
+    get:
+      tags: [Ingresos]
+      summary: Listar el historial de ingresos atribuidos al canal
+      operationId: listarIngresos
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+
+        Devuelve el listado de registros de ingreso con posibilidad de
+        filtrar por fuente, período y estado. Listado **paginado** según
+        RNF-3. Cubre RF-M3.
+
+        Los ingresos provienen de tres fuentes:
+        - `publicidad`: generados por `IngresoPublicitarioGenerado`
+          desde Publicidad, ya aplicado el revenue share.
+        - `membresia`: generados cuando un viewer paga una membresía.
+        - `propina`: generados por super-gracias en un video.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - name: fuente
+          in: query
+          required: false
+          description: Filtrar por fuente de ingreso
+          schema:
+            type: string
+            enum: [publicidad, membresia, propina]
+        - name: desde
+          in: query
+          required: false
+          description: Fecha de inicio del período (ISO 8601, inclusive)
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          required: false
+          description: Fecha de fin del período (ISO 8601, inclusive)
+          schema:
+            type: string
+            format: date
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de registros de ingreso del canal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeIngresos'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /canales/{channelId}/ingresos/resumen:
+    get:
+      tags: [Ingresos]
+      summary: Obtener el resumen de ingresos agrupados por período y fuente
+      operationId: obtenerResumenIngresos
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+
+        Devuelve totales y subtotales agrupados, útil para el dashboard
+        del creador. Cubre RF-M3.
+
+        **Consistencia eventual (RNF-5):** si existe algún contenido del
+        canal en estado `pendiente-verificacion` (despublicado en Catálogo
+        pero no procesado aquí todavía), los ingresos de ese contenido
+        se incluyen en el resumen con un indicador `advertencia:
+        ingresos-parciales` en el ítem correspondiente.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - name: agrupacion
+          in: query
+          required: false
+          description: Granularidad temporal del resumen
+          schema:
+            type: string
+            enum: [diario, semanal, mensual]
+            default: mensual
+        - name: desde
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Resumen de ingresos del canal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumenIngresos'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # SALDO DISPONIBLE — consulta síncrona ligera (RNF-4)
+  # ===================================================================
+  /canales/{channelId}/saldo:
+    get:
+      tags: [Ingresos]
+      summary: Consultar el saldo disponible del canal para retiro
+      operationId: consultarSaldo
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal o
+        un sistema interno.
+
+        Devuelve solo el saldo acumulado listo para retirar y la moneda,
+        sin historial de transacciones. Es el endpoint de **consulta
+        síncrona ligera** (RNF-4) pensado para que otros sistemas del
+        mismo operador (panel de administración, soporte) puedan leer el
+        saldo sin necesidad de parsear el resumen completo de ingresos.
+
+        Para el historial detallado usar `GET /canales/{channelId}/ingresos`.
+        Para el resumen agregado usar `GET /canales/{channelId}/ingresos/resumen`.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: Saldo disponible actual del canal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaldoCanal'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # MEMBRESÍAS — NIVELES (RF-M4)
+  # ===================================================================
+  /canales/{channelId}/membresias:
+    get:
+      tags: [Membresias]
+      summary: Listar los niveles de membresía de un canal
+      operationId: listarNivelesMembresia
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Endpoint público.
+
+        Devuelve los niveles de membresía activos del canal, con precios
+        y beneficios. Cubre RF-M4.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: Niveles de membresía del canal
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NivelMembresia'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    post:
+      tags: [Membresias]
+      summary: Crear un nuevo nivel de membresía
+      operationId: crearNivelMembresia
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal,
+        siempre que el canal tenga monetización habilitada.
+
+        Crea un nivel de membresía de pago con precio y beneficios
+        declarados. El canal puede tener hasta 5 niveles activos. Cubre
+        RF-M4.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NivelMembresiaCreacion'
+      responses:
+        '201':
+          description: Nivel de membresía creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NivelMembresia'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: |
+            El canal ya tiene el máximo de 5 niveles activos, o la
+            monetización del canal no está habilitada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /canales/{channelId}/membresias/{membresiaId}:
+    get:
+      tags: [Membresias]
+      summary: Consultar un nivel de membresía específico
+      operationId: obtenerNivelMembresia
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquiera. Endpoint público.
+        Cubre RF-M4.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/MembresiaId'
+      responses:
+        '200':
+          description: Nivel de membresía
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NivelMembresia'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    put:
+      tags: [Membresias]
+      summary: Actualizar un nivel de membresía
+      operationId: actualizarNivelMembresia
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+
+        Permite actualizar el nombre, descripción y beneficios. El precio
+        no puede bajarse si hay suscriptores activos en este nivel (para
+        no generar confusión en la facturación). Cubre RF-M4.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/MembresiaId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NivelMembresiaActualizacion'
+      responses:
+        '200':
+          description: Nivel de membresía actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NivelMembresia'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: No se puede bajar el precio con suscriptores activos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Membresias]
+      summary: Retirar un nivel de membresía
+      operationId: retirarNivelMembresia
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+
+        Marca el nivel como retirado; los suscriptores activos siguen
+        hasta el fin de su período facturado y luego se cancelan. No se
+        admiten nuevas suscripciones a un nivel retirado. Cubre RF-M4.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/MembresiaId'
+      responses:
+        '204':
+          description: Nivel de membresía marcado como retirado
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # MEMBRESÍAS — SUSCRIPCIONES DE VIEWERS (RF-M4)
+  # ===================================================================
+  /canales/{channelId}/membresias/{membresiaId}/suscribirse:
+    put:
+      tags: [Membresias]
+      summary: Suscribirse a un nivel de membresía de pago
+      operationId: suscribirseAMembresia
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier viewer autenticado.
+
+        Inicia el cobro periódico al método de pago del viewer y activa
+        los beneficios del nivel. Es idempotente: si ya está suscripto
+        en este nivel, devuelve 200. Cubre RF-M4 (Decisión 4: compra
+        interna en Monetización).
+
+        **Genera un `Ingreso`** de fuente `membresia` que queda registrado
+        en el historial del canal y del que este contexto emite
+        `IngresoAtribuido`.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/MembresiaId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudSuscripcionMembresia'
+      responses:
+        '200':
+          description: Ya estaba suscripto en este nivel; sin cambios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuscripcionMembresia'
+        '201':
+          description: Suscripción de membresía creada y primer cobro procesado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuscripcionMembresia'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '402':
+          description: |
+            El cobro fue rechazado por la pasarela de pagos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: El nivel de membresía está retirado y no acepta nuevas suscripciones.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Membresias]
+      summary: Cancelar la suscripción de membresía
+      operationId: cancelarSuscripcionMembresia
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el viewer dueño de la
+        suscripción.
+
+        Cancela la renovación automática. El acceso a beneficios se
+        mantiene hasta el fin del período ya pagado. Cubre RF-M4.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/MembresiaId'
+      responses:
+        '200':
+          description: Suscripción cancelada; indica hasta cuándo tiene acceso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuscripcionMembresia'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /usuarios/{userId}/membresias:
+    get:
+      tags: [Membresias]
+      summary: Listar las membresías activas de un viewer
+      operationId: listarMembresiasPropias
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el propio viewer autenticado.
+        Listado **paginado** según RNF-3. Cubre RF-M4.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página de membresías activas del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeSuscripcionesMembresia'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # PROPINAS / SUPER-GRACIAS (RF-M4)
+  # ===================================================================
+  /contenidos/{catalogItemId}/propinas:
+    post:
+      tags: [Propinas]
+      summary: Enviar una propina (super-gracias) en un contenido
+      operationId: enviarPropina
+      description: |
+        **Quién puede ejecutarla (RNF-1):** cualquier viewer autenticado.
+
+        El viewer elige un monto predefinido, se procesa el cobro
+        inmediato y el monto (menos la comisión de plataforma) se
+        atribuye al creador del canal propietario del contenido. La
+        propina puede incluir un mensaje de texto breve que se muestra
+        en el video. Cubre RF-M4 (Decisión 4).
+
+        **Emite:** `IngresoAtribuido` — payload:
+        `{ userId: creadorId, monto, fuente: "propina", periodo }`.
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PropinaCreacion'
+      responses:
+        '201':
+          description: Propina enviada y cobro procesado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Propina'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '402':
+          description: El cobro fue rechazado por la pasarela de pagos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /contenidos/{catalogItemId}/propinas/totales:
+    get:
+      tags: [Propinas]
+      summary: Consultar el total de propinas recibidas en un contenido
+      operationId: obtenerTotalesPropinas
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal
+        al que pertenece el contenido.
+
+        Devuelve el acumulado de propinas del video, útil para el
+        dashboard del creador. Cubre RF-M4.
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      responses:
+        '200':
+          description: Totales de propinas del contenido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotalesPropinas'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  # ===================================================================
+  # RETIROS — MÉTODOS DE PAGO (RF-M5)
+  # ===================================================================
+  /canales/{channelId}/metodos-pago:
+    get:
+      tags: [Retiros]
+      summary: Listar los métodos de pago registrados del canal
+      operationId: listarMetodosPago
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+        Cubre RF-M5.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: Lista de métodos de pago registrados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetodoPago'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    post:
+      tags: [Retiros]
+      summary: Registrar un nuevo método de pago
+      operationId: agregarMetodoPago
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+
+        Vincula un nuevo método de cobro (transferencia bancaria,
+        PayPal, etc.). Los datos sensibles (IBAN, nº de cuenta) los
+        tokeniza la pasarela de pagos externa; este contexto solo
+        almacena el alias y el token opaco. Cubre RF-M5.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoCreacion'
+      responses:
+        '201':
+          description: Método de pago registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetodoPago'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /canales/{channelId}/metodos-pago/{metodoPagoId}:
+    patch:
+      tags: [Retiros]
+      summary: Actualizar el alias o la condición de predeterminado de un método de pago
+      operationId: actualizarMetodoPago
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+
+        Permite cambiar el alias descriptivo o marcar este método como
+        predeterminado para futuros retiros. Al marcar uno como
+        predeterminado, el anterior deja de serlo automáticamente.
+
+        Los datos de la cuenta bancaria subyacente son inmutables en
+        este contexto: si se necesita cambiarlos, el creador debe
+        eliminar el método y añadir uno nuevo con el token actualizado
+        de la pasarela. Cubre RF-M5.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/MetodoPagoId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoActualizacion'
+      responses:
+        '200':
+          description: Método de pago actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetodoPago'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    delete:
+      tags: [Retiros]
+      summary: Eliminar un método de pago
+      operationId: eliminarMetodoPago
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+
+        No puede eliminarse el único método activo si hay un retiro
+        pendiente de procesarse. Cubre RF-M5.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/MetodoPagoId'
+      responses:
+        '204':
+          description: Método de pago eliminado
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: |
+            No se puede eliminar el único método de pago con un retiro
+            pendiente en curso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ===================================================================
+  # RETIROS — SOLICITUDES (RF-M5)
+  # ===================================================================
+  /canales/{channelId}/retiros:
+    get:
+      tags: [Retiros]
+      summary: Listar el historial de retiros del canal
+      operationId: listarRetiros
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+        Listado **paginado** según RNF-3. Cubre RF-M5.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - name: estado
+          in: query
+          required: false
+          description: Filtrar por estado del retiro
+          schema:
+            type: string
+            enum: [pendiente, procesando, completado, rechazado]
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/TamanoPagina'
+      responses:
+        '200':
+          description: Página del historial de retiros
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaDeRetiros'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+    post:
+      tags: [Retiros]
+      summary: Solicitar un retiro de saldo al creador
+      operationId: solicitarRetiro
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+
+        Inicia la transferencia del saldo disponible (o de un monto
+        parcial) al método de pago indicado. La plataforma impone un
+        mínimo de $100 por retiro y un umbral de verificación de
+        identidad para montos altos. Cubre RF-M5.
+
+        **Emite:** `PagoProcesado` — payload:
+        `{ payoutId, userId, monto }`.
+        El evento se emite cuando la pasarela confirma la transferencia,
+        no al recibir la solicitud.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudRetiro'
+      responses:
+        '201':
+          description: Solicitud de retiro creada; procesamiento asíncrono en curso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Retiro'
+        '400':
+          $ref: '#/components/responses/PeticionInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: |
+            Ya existe un retiro en estado `pendiente` o `procesando`
+            para este canal, o el saldo disponible es inferior al mínimo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /canales/{channelId}/retiros/{payoutId}:
+    get:
+      tags: [Retiros]
+      summary: Consultar el estado de un retiro específico
+      operationId: consultarRetiro
+      description: |
+        **Quién puede ejecutarla (RNF-1):** el creador dueño del canal.
+        Permite hacer polling sobre el estado de un retiro en curso.
+        Cubre RF-M5.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/PayoutId'
+      responses:
+        '200':
+          description: Estado actual del retiro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Retiro'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+# =====================================================================
+# COMPONENTES
+# =====================================================================
+components:
+
+  # -------------------------------------------------------------------
+  # RNF-1: cómo se identifica al actor.
+  # -------------------------------------------------------------------
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token emitido por la plataforma de identidad compartida (el login
+        con Google queda FUERA de los bounded contexts según el enunciado).
+        El token identifica al actor: creador, viewer o sistema interno.
+
+  # -------------------------------------------------------------------
+  # RNF-3 (parte 1): parámetros reutilizables.
+  # -------------------------------------------------------------------
+  parameters:
+    ChannelId:
+      name: channelId
+      in: path
+      required: true
+      description: Identificador del canal (channelId compartido, RNF-2)
+      schema:
+        type: string
+
+    CatalogItemId:
+      name: catalogItemId
+      in: path
+      required: true
+      description: Identificador del ítem de catálogo (catalogItemId compartido, RNF-2)
+      schema:
+        type: string
+
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: Identificador del usuario (userId compartido, RNF-2)
+      schema:
+        type: string
+
+    MembresiaId:
+      name: membresiaId
+      in: path
+      required: true
+      description: Identificador del nivel de membresía
+      schema:
+        type: string
+
+    MetodoPagoId:
+      name: metodoPagoId
+      in: path
+      required: true
+      description: Identificador del método de pago
+      schema:
+        type: string
+
+    PayoutId:
+      name: payoutId
+      in: path
+      required: true
+      description: Identificador del retiro (payout)
+      schema:
+        type: string
+
+    Pagina:
+      name: pagina
+      in: query
+      required: false
+      description: Número de página, desde 1 (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    TamanoPagina:
+      name: tamanoPagina
+      in: query
+      required: false
+      description: Cantidad de ítems por página (RNF-3)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  # -------------------------------------------------------------------
+  # RNF-3 (parte 2): respuestas de error reutilizables.
+  # -------------------------------------------------------------------
+  responses:
+    PeticionInvalida:
+      description: Los datos enviados no son válidos (400)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NoAutenticado:
+      description: Falta el token o es inválido (401)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    SinPermiso:
+      description: El actor autenticado no puede ejecutar esta operación (403)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NoEncontrado:
+      description: El recurso no existe (404)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+
+    # -----------------------------------------------------------------
+    # RNF-3: formato de error único de esta API.
+    # -----------------------------------------------------------------
+    Error:
+      type: object
+      description: Formato de error consistente del contexto Monetización (RNF-3)
+      required:
+        - codigo
+        - mensaje
+      properties:
+        codigo:
+          type: string
+          description: Código estable legible por máquina
+          example: ELEGIBILIDAD_INSUFICIENTE
+        mensaje:
+          type: string
+          description: Explicación legible por humanos
+          example: El canal no supera el mínimo de 1 000 suscriptores requerido
+        detalles:
+          type: array
+          description: Información adicional opcional (ej. requisito no cumplido)
+          items:
+            type: string
+
+    # -----------------------------------------------------------------
+    # Elegibilidad
+    # RNF-2: no se copian los modelos de Audiencia ni Publicación.
+    # Solo se guardan el resultado de la evaluación y la fecha.
+    # -----------------------------------------------------------------
+    ElegibilidadMonetizacion:
+      type: object
+      description: |
+        Resultado de la evaluación de elegibilidad para el Programa de
+        Socios (RF-M1). Los valores de suscriptores y horasVista son los
+        que tenía el canal en el momento de la última evaluación; este
+        contexto no los almacena de forma continua (RNF-2, Decisión 1).
+      required:
+        - channelId
+        - elegible
+        - criterioSuscriptores
+        - criterioHorasVista
+        - fechaEvaluacion
+      properties:
+        channelId:
+          type: string
+          description: ID compartido del canal evaluado (RNF-2)
+        elegible:
+          type: boolean
+          description: true si cumple TODOS los criterios simultáneamente
+        criterioSuscriptores:
+          $ref: '#/components/schemas/CriterioElegibilidad'
+        criterioHorasVista:
+          $ref: '#/components/schemas/CriterioElegibilidad'
+        fechaEvaluacion:
+          type: string
+          format: date-time
+          description: Momento en que se realizó la última evaluación
+
+    CriterioElegibilidad:
+      type: object
+      description: Estado de un criterio individual de elegibilidad
+      required:
+        - requerido
+        - obtenido
+        - cumple
+      properties:
+        requerido:
+          type: number
+          description: Valor mínimo exigido
+          example: 1000
+        obtenido:
+          type: number
+          description: |
+            Valor registrado en la última consulta síncrona al contexto
+            propietario del dato (Audiencia o Publicación, RNF-4,
+            Decisión 1).
+          example: 847
+        cumple:
+          type: boolean
+
+    # -----------------------------------------------------------------
+    # Estado de monetización — Canal
+    # RNF-2: "canal" aquí es una entidad económica, no editorial.
+    # -----------------------------------------------------------------
+    EstadoMonetizacionCanal:
+      type: object
+      description: |
+        Estado de monetización del canal en este contexto (RF-M1, RF-M2).
+        "Canal" aquí solo tiene dimensión económica: saldo, revenue share
+        y estado. Sin título, descripción ni metadata editorial (RNF-2).
+      required:
+        - channelId
+        - habilitada
+        - elegibilidadAprobada
+      properties:
+        channelId:
+          type: string
+          description: ID compartido del canal (RNF-2)
+        habilitada:
+          type: boolean
+          description: Si la monetización está activa en este momento
+        elegibilidadAprobada:
+          type: boolean
+          description: Si el canal superó la evaluación de elegibilidad
+        revenueSharePorcentaje:
+          type: number
+          format: float
+          description: Porcentaje del ingreso bruto que retiene la plataforma
+          example: 45.0
+        saldoDisponible:
+          type: number
+          format: float
+          description: Saldo acumulado listo para retirar (en USD)
+          example: 128.75
+        motivoDeshabilitacion:
+          type: string
+          description: Presente si habilitada=false; indica la razón
+          enum: [creador, politica_plataforma, restriccion_catalogo, elegibilidad_perdida]
+
+    CambioMonetizacionCanal:
+      type: object
+      description: Petición para habilitar o deshabilitar monetización del canal (RF-M2)
+      required:
+        - habilitada
+      properties:
+        habilitada:
+          type: boolean
+
+    # -----------------------------------------------------------------
+    # Estado de monetización — Contenido
+    # -----------------------------------------------------------------
+    EstadoMonetizacionContenido:
+      type: object
+      description: |
+        Estado de monetización de un contenido individual (RF-M2).
+        Solo gestiona si ese video acepta anuncios; la lógica de cuál
+        anuncio se sirve vive en Publicidad. RNF-2: solo el catalogItemId,
+        no el título ni ninguna metadata editorial.
+      required:
+        - catalogItemId
+        - channelId
+        - habilitada
+        - estadoContenido
+      properties:
+        catalogItemId:
+          type: string
+          description: ID compartido del contenido (RNF-2)
+        channelId:
+          type: string
+          description: Canal al que pertenece (channelId compartido, RNF-2)
+        habilitada:
+          type: boolean
+          description: Si la monetización de este contenido está activa
+        estadoContenido:
+          type: string
+          enum: [publicado, despublicado, pendiente-verificacion]
+          description: |
+            `pendiente-verificacion`: el evento ContenidoDespublicado de
+            Catálogo llegó al bus pero este contexto aún no lo procesó
+            (ventana de consistencia eventual, RNF-5).
+        motivoDeshabilitacion:
+          type: string
+          description: Razón por la que no está habilitado, si aplica
+          enum: [creador, restriccion_catalogo, canal_deshabilitado]
+
+    CambioMonetizacionContenido:
+      type: object
+      description: Petición para habilitar o deshabilitar monetización de un contenido (RF-M2)
+      required:
+        - habilitada
+      properties:
+        habilitada:
+          type: boolean
+
+    # -----------------------------------------------------------------
+    # Ingresos
+    # RNF-2: solo se almacena la fuente, el monto y el catalogItemId de
+    # referencia; nunca el título del video ni datos del anunciante.
+    # -----------------------------------------------------------------
+    Ingreso:
+      type: object
+      description: |
+        Registro de un ingreso atribuido al creador (RF-M3).
+        Ya incluye el revenue share aplicado: `monto` es lo que recibe
+        el creador, no el bruto del anunciante.
+      required:
+        - ingresoId
+        - channelId
+        - monto
+        - fuente
+        - fechaAtribucion
+        - estado
+      properties:
+        ingresoId:
+          type: string
+        channelId:
+          type: string
+          description: Canal al que se atribuye el ingreso (RNF-2)
+        catalogItemId:
+          type: string
+          description: Contenido origen del ingreso, si aplica (RNF-2, solo ID)
+        monto:
+          type: number
+          format: float
+          description: Monto neto acreditado al creador (en USD), ya descontado el revenue share
+          example: 1.47
+        fuente:
+          type: string
+          enum: [publicidad, membresia, propina]
+          description: Origen del ingreso
+        revenueEventId:
+          type: string
+          description: |
+            ID del evento fuente de Publicidad, presente cuando
+            fuente=publicidad. Trazabilidad de IngresoPublicitarioGenerado.
+        periodo:
+          type: string
+          format: date
+          description: Mes de acreditación (YYYY-MM)
+        fechaAtribucion:
+          type: string
+          format: date-time
+        estado:
+          type: string
+          enum: [confirmado, pendiente-verificacion, cancelado]
+          description: |
+            `pendiente-verificacion`: el contenido asociado está en
+            ventana de consistencia eventual (RNF-5); el monto está
+            acreditado pero podría cancelarse si el contenido se
+            confirma como despublicado antes del procesamiento.
+
+    PaginaDeIngresos:
+      type: object
+      description: Envoltorio de paginación de ingresos (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ingreso'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    ResumenIngresos:
+      type: object
+      description: Resumen agregado de ingresos por período y fuente (RF-M3)
+      required:
+        - channelId
+        - totalNeto
+        - moneda
+        - periodos
+      properties:
+        channelId:
+          type: string
+        totalNeto:
+          type: number
+          format: float
+          description: Total neto del período completo consultado (en USD)
+        moneda:
+          type: string
+          default: USD
+        periodos:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResumenPeriodo'
+
+    ResumenPeriodo:
+      type: object
+      description: Subtotal de un período en el resumen de ingresos
+      required:
+        - periodo
+        - totalNeto
+        - porFuente
+      properties:
+        periodo:
+          type: string
+          description: Etiqueta del período según la agrupación elegida (ej. "2026-06")
+        totalNeto:
+          type: number
+          format: float
+        porFuente:
+          type: object
+          description: Desglose por fuente de ingreso
+          properties:
+            publicidad:
+              type: number
+              format: float
+              default: 0
+            membresia:
+              type: number
+              format: float
+              default: 0
+            propina:
+              type: number
+              format: float
+              default: 0
+        advertencia:
+          type: string
+          description: Presente si hay ingresos en estado pendiente-verificacion (RNF-5)
+          example: ingresos-parciales
+
+    # -----------------------------------------------------------------
+    # Membresías
+    # -----------------------------------------------------------------
+    NivelMembresia:
+      type: object
+      description: Nivel de membresía de pago ofrecido por el canal (RF-M4)
+      required:
+        - membresiaId
+        - channelId
+        - nombre
+        - precioMensual
+        - moneda
+        - estado
+      properties:
+        membresiaId:
+          type: string
+        channelId:
+          type: string
+          description: Canal que ofrece la membresía (channelId compartido, RNF-2)
+        nombre:
+          type: string
+          description: Nombre del nivel (ej. "Fan", "Superfan")
+          example: Superfan
+        descripcion:
+          type: string
+        precioMensual:
+          type: number
+          format: float
+          description: Precio mensual en USD
+          example: 4.99
+        moneda:
+          type: string
+          default: USD
+        beneficios:
+          type: array
+          description: Lista de beneficios declarados por el creador
+          items:
+            type: string
+          example: ["Insignia exclusiva", "Acceso anticipado a videos", "Chat exclusivo"]
+        estado:
+          type: string
+          enum: [activo, retirado]
+        totalSuscriptoresActivos:
+          type: integer
+          description: Solo visible para el creador del canal
+
+    NivelMembresiaCreacion:
+      type: object
+      required:
+        - nombre
+        - precioMensual
+      properties:
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        precioMensual:
+          type: number
+          format: float
+          minimum: 0.99
+        beneficios:
+          type: array
+          items:
+            type: string
+
+    NivelMembresiaActualizacion:
+      type: object
+      description: Campos editables de un nivel de membresía (precio no puede bajarse)
+      properties:
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        beneficios:
+          type: array
+          items:
+            type: string
+
+    SolicitudSuscripcionMembresia:
+      type: object
+      description: Datos para suscribirse a un nivel de membresía (RF-M4)
+      required:
+        - metodoPagoId
+      properties:
+        metodoPagoId:
+          type: string
+          description: Método de pago del viewer que se usará para los cobros recurrentes
+
+    SuscripcionMembresia:
+      type: object
+      description: |
+        Suscripción activa de un viewer a un nivel de membresía de pago
+        (RF-M4). La "suscripción" aquí es económica (con cobro periódico),
+        no social (eso es Audiencia).
+      required:
+        - userId
+        - membresiaId
+        - channelId
+        - estado
+        - fechaInicio
+        - proximaRenovacion
+      properties:
+        userId:
+          type: string
+          description: Viewer suscripto (userId compartido, RNF-2)
+        membresiaId:
+          type: string
+        channelId:
+          type: string
+          description: Canal al que está suscripto (channelId compartido, RNF-2)
+        estado:
+          type: string
+          enum: [activa, cancelada, expirada]
+        fechaInicio:
+          type: string
+          format: date-time
+        proximaRenovacion:
+          type: string
+          format: date
+          description: Fecha del próximo cobro; ausente si cancelada
+        accesoHasta:
+          type: string
+          format: date
+          description: Hasta cuándo tiene acceso si la suscripción fue cancelada
+
+    PaginaDeSuscripcionesMembresia:
+      type: object
+      description: Envoltorio de paginación de suscripciones de membresía (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SuscripcionMembresia'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
+
+    # -----------------------------------------------------------------
+    # Propinas
+    # -----------------------------------------------------------------
+    Propina:
+      type: object
+      description: |
+        Super-gracias / propina enviada por un viewer en un contenido
+        (RF-M4, Decisión 4). Cobro único e inmediato.
+      required:
+        - propinaId
+        - catalogItemId
+        - channelId
+        - userId
+        - monto
+        - moneda
+        - fechaEnvio
+      properties:
+        propinaId:
+          type: string
+        catalogItemId:
+          type: string
+          description: Contenido en el que se envió la propina (RNF-2)
+        channelId:
+          type: string
+          description: Canal beneficiario (channelId compartido, RNF-2)
+        userId:
+          type: string
+          description: Viewer que envió la propina (userId compartido, RNF-2)
+        monto:
+          type: number
+          format: float
+          description: Monto total cobrado al viewer (en USD)
+          example: 5.00
+        moneda:
+          type: string
+          default: USD
+        mensaje:
+          type: string
+          maxLength: 200
+          description: Mensaje breve del viewer mostrado en el video
+        fechaEnvio:
+          type: string
+          format: date-time
+
+    PropinaCreacion:
+      type: object
+      description: Datos para enviar una propina (RF-M4)
+      required:
+        - monto
+        - metodoPagoId
+      properties:
+        monto:
+          type: number
+          format: float
+          description: Monto elegido (en USD); la plataforma define los montos permitidos
+          enum: [2.0, 5.0, 10.0, 20.0, 50.0, 100.0]
+        metodoPagoId:
+          type: string
+          description: Método de pago del viewer para este cobro único
+        mensaje:
+          type: string
+          maxLength: 200
+
+    TotalesPropinas:
+      type: object
+      description: Acumulado de propinas de un contenido (RF-M4)
+      required:
+        - catalogItemId
+        - totalBruto
+        - totalNeto
+        - cantidad
+      properties:
+        catalogItemId:
+          type: string
+        totalBruto:
+          type: number
+          format: float
+          description: Suma de lo pagado por todos los viewers (en USD)
+        totalNeto:
+          type: number
+          format: float
+          description: Lo que recibe el creador tras el revenue share
+        cantidad:
+          type: integer
+          description: Número de propinas recibidas
+
+    # -----------------------------------------------------------------
+    # Saldo liviano (consulta síncrona, RNF-4)
+    # -----------------------------------------------------------------
+    SaldoCanal:
+      type: object
+      description: |
+        Vista mínima del saldo disponible del canal (RF-M5).
+        Diseñado para consultas síncronas ligeras (RNF-4): solo expone
+        el saldo listo para retirar y la moneda, sin historial.
+      required:
+        - channelId
+        - saldoDisponible
+        - moneda
+      properties:
+        channelId:
+          type: string
+          description: Canal consultado (channelId compartido, RNF-2)
+        saldoDisponible:
+          type: number
+          format: float
+          description: Saldo neto acumulado listo para solicitar retiro (en USD)
+          example: 128.75
+        moneda:
+          type: string
+          default: USD
+        ultimaActualizacion:
+          type: string
+          format: date-time
+          description: Momento del último ingreso o retiro que afectó al saldo
+
+    # -----------------------------------------------------------------
+    # Métodos de pago y retiros
+    # -----------------------------------------------------------------
+    MetodoPago:
+      type: object
+      description: |
+        Método de cobro registrado por el creador para recibir retiros
+        (RF-M5). Los datos sensibles están tokenizados por la pasarela
+        externa; este contexto solo guarda el alias y el token opaco.
+      required:
+        - metodoPagoId
+        - channelId
+        - tipo
+        - alias
+        - predeterminado
+      properties:
+        metodoPagoId:
+          type: string
+        channelId:
+          type: string
+          description: Canal al que pertenece este método (RNF-2)
+        tipo:
+          type: string
+          enum: [transferencia_bancaria, paypal, stripe]
+        alias:
+          type: string
+          description: Nombre amigable para identificar el método
+          example: Cuenta corriente CL
+        ultimosDigitos:
+          type: string
+          description: Últimos 4 dígitos de la cuenta, si aplica (dato de presentación)
+          example: "4321"
+        predeterminado:
+          type: boolean
+          description: Si es el método usado por defecto en nuevos retiros
+
+    MetodoPagoCreacion:
+      type: object
+      description: Datos para registrar un nuevo método de pago (RF-M5)
+      required:
+        - tipo
+        - alias
+        - tokenPasarela
+      properties:
+        tipo:
+          type: string
+          enum: [transferencia_bancaria, paypal, stripe]
+        alias:
+          type: string
+        tokenPasarela:
+          type: string
+          description: |
+            Token opaco generado por la pasarela de pagos tras validar
+            los datos bancarios del creador. Este contexto nunca recibe
+            números de cuenta en claro.
+        predeterminado:
+          type: boolean
+          default: false
+
+    MetodoPagoActualizacion:
+      type: object
+      description: |
+        Campos editables de un método de pago (RF-M5). Los datos
+        bancarios subyacentes son inmutables; solo se puede cambiar
+        el alias y la condición de predeterminado.
+      properties:
+        alias:
+          type: string
+          description: Nuevo nombre amigable para el método
+          example: Cuenta corriente CL (actualizada)
+        predeterminado:
+          type: boolean
+          description: |
+            Si es true, este método pasa a ser el predeterminado y el
+            anterior deja de serlo. Si es false, no hace nada (para
+            quitar el predeterminado se debe marcar otro como true).
+
+    SolicitudRetiro:
+      type: object
+      description: Petición de retiro de saldo del creador (RF-M5)
+      required:
+        - metodoPagoId
+      properties:
+        monto:
+          type: number
+          format: float
+          description: |
+            Monto a retirar en USD. Si se omite, se retira el saldo
+            disponible completo. Mínimo: $100.
+          minimum: 100
+        metodoPagoId:
+          type: string
+          description: ID del método de pago al que transferir
+
+    Retiro:
+      type: object
+      description: |
+        Registro de una solicitud de retiro de saldo (RF-M5).
+        El estado `completado` solo se alcanza tras confirmación de la
+        pasarela, momento en que se emite `PagoProcesado`.
+      required:
+        - payoutId
+        - channelId
+        - monto
+        - metodoPagoId
+        - estado
+        - fechaSolicitud
+      properties:
+        payoutId:
+          type: string
+        channelId:
+          type: string
+          description: Canal que solicitó el retiro (RNF-2)
+        monto:
+          type: number
+          format: float
+          description: Monto solicitado (en USD)
+        metodoPagoId:
+          type: string
+          description: Método de pago destino
+        estado:
+          type: string
+          enum: [pendiente, procesando, completado, rechazado]
+        motivoRechazo:
+          type: string
+          description: Presente solo si estado=rechazado; motivo de la pasarela
+        fechaSolicitud:
+          type: string
+          format: date-time
+        fechaCompletado:
+          type: string
+          format: date-time
+          description: Presente solo si estado=completado
+
+    PaginaDeRetiros:
+      type: object
+      description: Envoltorio de paginación del historial de retiros (RNF-3)
+      required:
+        - items
+        - pagina
+        - tamanoPagina
+        - totalItems
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Retiro'
+        pagina:
+          type: integer
+        tamanoPagina:
+          type: integer
+        totalItems:
+          type: integer
