@@ -70,9 +70,9 @@ DDD_Youtube/
 ├── 01-publicacion/      openapi.yaml + diagramas
 ├── 02-catalogo/         openapi.yaml + diagramas
 ├── 03-descubrimiento/   openapi.yaml + diagramas
-├── 04-audiencia/        (pendiente)
-├── 05-monetizacion/     (pendiente)
-├── 06-publicidad/       (pendiente)
+├── 04-audiencia/        openapi.yaml + diagramas
+├── 05-monetizacion/     openapi.yaml + diagramas
+├── 06-publicidad/       openapi.yaml + diagramas
 └── docs/
     ├── registro-eventos.md       catálogo de eventos entre contextos
     ├── plantilla-openapi.yaml     convenciones del equipo (RNF-1 a RNF-5)
