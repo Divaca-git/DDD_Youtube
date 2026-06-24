@@ -14,9 +14,9 @@ Curso: Análisis y Diseño de Software · Entrega: 24 de junio de 2026
 | 1 | [Publicación](01-publicacion/) | Ciclo de vida técnico del video: subida, procesamiento, reproducción, transmisión | ✅ |
 | 2 | [Catálogo](02-catalogo/) | Qué contenido existe públicamente y bajo qué reglas (editoriales, legales, de visibilidad) | ✅ |
 | 3 | [Descubrimiento](03-descubrimiento/) | Qué se muestra y en qué orden: búsqueda, feed, relacionados, tendencias | ✅ |
-| 4 | [Audiencia](04-audiencia/) | Relación social: suscripciones, likes, comentarios, notificaciones, historial | ⬜ |
-| 5 | [Monetización](05-monetizacion/) | Cómo el creador gana dinero: elegibilidad, ingresos, membresías, retiros | ⬜ |
-| 6 | [Publicidad](06-publicidad/) | Campañas de anunciantes, anuncios en videos, facturación | ⬜ |
+| 4 | [Audiencia](04-audiencia/) | Relación social: suscripciones, likes, comentarios, notificaciones, historial | ✅ |
+| 5 | [Monetización](05-monetizacion/) | Cómo el creador gana dinero: elegibilidad, ingresos, membresías, retiros | ✅ |
+| 6 | [Publicidad](06-publicidad/) | Campañas de anunciantes, anuncios en videos, facturación | ✅ |
 
 ## Idea central del diseño
 
